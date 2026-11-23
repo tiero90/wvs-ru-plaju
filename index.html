@@ -442,6 +442,9 @@ const store={mode:'connecting',db:null,
     } else {
       this.mode='local';
       try{const raw=localStorage.getItem(LKEY);if(raw){const o=JSON.parse(raw);for(const c of COLLS)S[c]=o[c]||[];}}catch(e){}
+      if(SITE){try{const sd=await getJSON('data/seed.json');let seen='';try{seen=localStorage.getItem(LKEY+'-seed')||'';}catch(e){}
+        if(sd&&sd.v&&sd.v!==seen){for(const c of COLLS){const have=new Set(S[c].map(x=>x.id));(sd[c]||[]).forEach(d=>{if(!have.has(d.id))S[c].push(d);});}
+          this.persist();try{localStorage.setItem(LKEY+'-seed',sd.v);}catch(e){}}}catch(e){}}
       COLLS.forEach(c=>S.loaded[c]=true);
       try{const all=await evIDB.loadAll();for(const k in all)S.lurl[k]=URL.createObjectURL(all[k]);}catch(e){}
     }
