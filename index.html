@@ -389,6 +389,9 @@ mark{background:var(--warn-soft);color:var(--ink)}
   const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
   async function decrypt(buf){const u=new Uint8Array(buf);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:u.slice(0,12)},key,u.slice(12));
     const ds=new Response(new Blob([pt]).stream().pipeThrough(new DecompressionStream('gzip')));return ds.text();}
+  async function decryptBin(buf){const u=new Uint8Array(buf);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:u.slice(0,12)},key,u.slice(12));
+    return new Response(new Blob([pt]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();}
+  async function loadBin(p){await ready;const r=await fetch(p);if(!r.ok)throw new Error(r.status);return decryptBin(await r.arrayBuffer());}
   async function load(p){await ready;const r=await fetch(p+'.enc');if(!r.ok)throw new Error(r.status);return JSON.parse(await decrypt(await r.arrayBuffer()));}
   async function check(){const r=await fetch('data/check.enc',{cache:'no-store'});if(!r.ok)throw new Error('net');return (await decrypt(await r.arrayBuffer()))==='"WVS-OK"';}
   async function derive(p){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(p),'PBKDF2',false,['deriveKey']);
@@ -396,7 +399,7 @@ mark{background:var(--warn-soft);color:var(--ink)}
   function open(){document.getElementById('gate').hidden=true;document.documentElement.style.overflow='';addOut();resolveReady();}
   function addOut(){const top=document.querySelector('header.top');if(!top||document.getElementById('gateOut'))return;const b=document.createElement('button');b.type='button';b.id='gateOut';b.textContent='Keluar';
     b.addEventListener('click',()=>{try{sessionStorage.removeItem(KK);sessionStorage.removeItem(TK);}catch(e){}location.reload();});top.appendChild(b);}
-  window.WVS_SITE={ready,load,api:API,token:''};
+  window.WVS_SITE={ready,load,loadBin,api:API,token:''};
   async function mkToken(p){const h=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('wvs-api|'+p)));return [...h].map(b=>b.toString(16).padStart(2,'0')).join('');}
   document.documentElement.style.overflow='hidden';
   (async()=>{try{const raw=sessionStorage.getItem(KK);if(raw){key=await crypto.subtle.importKey('raw',b64(raw),'AES-GCM',false,['decrypt']);if(await check()){try{window.WVS_SITE.token=sessionStorage.getItem(TK)||'';}catch(e){}open();return;}}}catch(e){}
@@ -819,8 +822,9 @@ function vRefList(){
   const L=S.L;const k=S.lf.ref||'';const q=lq('refl');
   const list=L.tko.filter(t=>(!k||(k==='drive'?t.inDrive:t.kind===k))&&(!q||(t.title+' '+t.no).toLowerCase().includes(q)));
   return '<div class="wrap">'+listHead('TKO · TKI · Pedoman','Reference','Tata Kerja Organisasi, Tata Kerja Individu dan Pedoman yang menjadi acuan Performance Standard. Dokumen bertanda “di Drive” bisa dibuka langsung.','<div class="row"><a class="btn" href="#add">+ Tambah dokumen referensi</a></div>')+
-   '<section class="panel"><div class="panel-h">'+chipFilter('ref',[['','Semua ('+L.tko.length+')'],['drive','Ada di Drive'],['TKO','TKO'],['TKI','TKI'],['Pedoman','Pedoman']])+filterBox('refl','Cari TKO / nomor…')+'</div>'+
-   '<div class="lgrid">'+list.map(t=>'<a class="lcard" href="#doc-'+t.id+'"><b>'+esc(t.title)+'</b><span class="mono">No. '+esc(t.no)+'</span><div class="foot"><span class="chip type">'+esc(t.kind)+'</span>'+(t.inDrive?'<span class="chip good">Di Drive</span>':'')+'<span class="chip">'+t.ps.length+' PS merujuk</span></div></a>').join('')+userCards('TKO')+'</div>'+
+   '<section class="panel"><div class="panel-h">'+chipFilter('ref',[['','Semua ('+L.tko.length+')'],['drive','Ada di Drive'],['TKO','TKO'],['TKI','TKI'],['Pedoman','Pedoman'],['Standar','Standar & Spesifikasi'],['Regulasi','Regulasi'],['Referensi','Referensi lain']])+filterBox('refl','Cari TKO / nomor…')+'</div>'+
+   '<div class="lgrid">'+list.map(t=>t.file?'<div class="lcard" role="link" tabindex="0" data-openref="'+esc(t.id)+'" style="cursor:pointer" title="Klik untuk membuka file"><b>'+esc(t.title)+'</b>'+(t.no?'<span class="mono">No. '+esc(t.no)+'</span>':'')+'<div class="foot"><span class="chip type">'+esc(t.kind)+'</span><span class="chip good">📄 Buka PDF</span>'+(t.ps.length?'<span class="chip">'+t.ps.length+' PS merujuk</span>':'')+'<a class="chip" href="#doc-'+t.id+'">Detail</a></div></div>'
+      :'<a class="lcard" href="#doc-'+t.id+'"><b>'+esc(t.title)+'</b><span class="mono">No. '+esc(t.no)+'</span><div class="foot"><span class="chip type">'+esc(t.kind)+'</span>'+(t.inDrive?'<span class="chip good">Di Drive</span>':'')+'<span class="chip">'+t.ps.length+' PS merujuk</span></div></a>').join('')+userCards('TKO')+'</div>'+
    (list.length?'':emptyBox('Tidak ada dokumen yang cocok.'))+'</section></div>';
 }
 
@@ -992,12 +996,21 @@ async function uploadWvsEvidence(spec,files){
 function vTKO(t){
   const ps=t.ps.map(psByNo).filter(Boolean);
   return head('TKO',t.title,'',[['Nomor',t.no,1],['Jenis',t.kind],['Revisi',t.rev||''],['Ketersediaan',t.inDrive?'Ada di folder Google Drive':'Dirujuk oleh PS, dokumen belum ada di Drive']],catChips(t.cats),
-    t.link?'<a class="btn pri" href="'+esc(t.link)+'" target="_blank" rel="noopener">Buka dokumen di Google Drive</a>':'')+
+    t.file?'<button class="btn pri" type="button" data-openref="'+esc(t.id)+'">📄 Buka dokumen (PDF)</button>':t.link?'<a class="btn pri" href="'+esc(t.link)+'" target="_blank" rel="noopener">Buka dokumen di Google Drive</a>':'')+
    (t.sections?'<section class="panel"><h2>Ringkasan Isi</h2><div class="tbl-wrap"><table><tbody>'+t.sections.map(s=>'<tr><th style="white-space:normal;width:220px">'+esc(s[0])+'</th><td>'+esc(s[1])+'</td></tr>').join('')+'</tbody></table></div></section>':'')+
    (t.text?'<section class="panel"><div class="panel-h"><h2>Isi Pedoman</h2>'+filterBox('tkotext','Cari dalam teks…')+'</div><div class="prewrap" style="max-height:640px;overflow:auto;font-size:13px;line-height:1.6;padding-right:8px">'+tkoText(t.text)+'</div></section>':'')+
    (!t.inDrive?'<p class="note">Dokumen ini dirujuk dalam Means of Assurance pada PS di bawah. Unggah file aslinya ke Drive lalu daftarkan lewat <a href="#add">Tambah dokumen referensi</a> agar bisa dibuka dari sini.</p>':'')+
    '<section class="panel"><h2>Performance Standard yang Merujuk</h2>'+(ps.length?'<div class="chips">'+ps.map(p=>'<a class="chip" href="#doc-'+p.id+'">PS '+esc(p.no)+' '+esc(p.title)+'</a>').join('')+'</div>':emptyBox('Tidak ada PS yang merujuk secara eksplisit.'))+'</section>';
 }
+const SITE_URL='https://tiero90.github.io/wvs-ru-plaju/';
+async function openRefFile(id){const t=S.L.tko.find(x=>x.id===id);if(!t||!t.file)return;
+  if(!(SITE&&SITE.loadBin)){window.open(SITE_URL+'#doc-'+id,'_blank','noopener');toast('File dibuka di website WVS (login dengan password website).');return;}
+  const w=window.open('','_blank');if(w){try{w.document.title=t.title;w.document.body.style.font='16px sans-serif';w.document.body.textContent='Membuka '+t.title+' …';}catch(e){}}
+  toast('Membuka dokumen'+(t.fsize>8e6?' ('+(t.fsize/1048576).toFixed(0)+' MB, mohon tunggu)':'')+'…',8000);
+  try{const buf=await SITE.loadBin(t.file);const url=URL.createObjectURL(new Blob([buf],{type:'application/pdf'}));
+    if(w&&!w.closed)w.location.href=url;else{const a=document.createElement('a');a.href=url;a.download=t.fname||(t.title+'.pdf');document.body.appendChild(a);a.click();a.remove();}
+    $('#toast').hidden=true;}
+  catch(e){if(w&&!w.closed)w.close();toast('Dokumen gagal dibuka. Periksa koneksi lalu coba lagi.');}}
 function tkoText(txt){const q=(S.filt.tkotext||'').trim();let h=esc(txt);if(q.length>1){const re=new RegExp('('+esc(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');h=h.replace(re,'<mark>$1</mark>');}return h;}
 function vUserDoc(d){
   return '<div class="wrap">'+head(d.type,d.title,esc(d.content||''),[['Nomor',d.no,1],['Kategori',(d.cats||[]).map(catName).join(', ')],['Tag',d.tag,1],['Unit',d.unit],['Revisi',d.rev]],'<span class="chip good">Dokumen tambahan</span>',
@@ -1324,7 +1337,7 @@ window.addEventListener('hashchange',()=>{S.confirm=null;S.filt={};render();wind
 
 /* ======================= EVENTS ======================= */
 document.addEventListener('click',async e=>{
-  const t=e.target.closest('[data-submitrep],[data-repdl],[data-genreport],[data-gengo],[data-rmwev],[data-emsdl],[data-gmsdl],[data-export],[data-drill],[data-drillall],[data-hmode],[data-lf],[data-go],[data-href],[data-search],[data-searchcat],[data-stype-go],[data-startform],[data-genmode],[data-gensave],[data-genuse],[data-genai],[data-st],[data-conf],[data-tag],[data-tagall],[data-tagnone],[data-tagadd],[data-addrec],[data-rmrec],[data-tagpick],[data-tagrm],[data-tagok],[data-rmph],[data-genfresh],[data-reqopen],[data-reqcancel],[data-reqsend],[data-reqdecide],[data-adminout],[data-additem],[data-rmitem],[data-rmev],[data-saveform],[data-resetform],[data-askconfirm],[data-doconfirm],[data-cancelconfirm],[data-stype],[data-scat],[data-eqall],figure[data-lb]');
+  const t=e.target.closest('[data-submitrep],[data-repdl],[data-genreport],[data-gengo],[data-rmwev],[data-emsdl],[data-gmsdl],[data-export],[data-drill],[data-drillall],[data-hmode],[data-lf],[data-go],[data-href],[data-search],[data-searchcat],[data-stype-go],[data-startform],[data-genmode],[data-gensave],[data-genuse],[data-genai],[data-st],[data-conf],[data-tag],[data-tagall],[data-tagnone],[data-tagadd],[data-addrec],[data-rmrec],[data-tagpick],[data-tagrm],[data-tagok],[data-rmph],[data-openref],[data-genfresh],[data-reqopen],[data-reqcancel],[data-reqsend],[data-reqdecide],[data-adminout],[data-additem],[data-rmitem],[data-rmev],[data-saveform],[data-resetform],[data-askconfirm],[data-doconfirm],[data-cancelconfirm],[data-stype],[data-scat],[data-eqall],figure[data-lb]');
   if(!t)return;const d=t.dataset;
   if(d.drill){const [dim,val,ata]=d.drill.split('|');S.drill={dim,val,ata,q:''};S.drill[dim]=val;rerenderKeep();const el=document.getElementById('drill');if(el)el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});return;}
   if(d.export!==undefined){exportExcel();return;}
@@ -1373,6 +1386,7 @@ document.addEventListener('click',async e=>{
   if(d.reqdecide){if(!S.admin)return;const [id,st]=d.reqdecide.split(':');t.disabled=true;
     try{await store.update('requests',id,{status:st,decidedAt:new Date().toISOString()});toast(st==='approved'?'Pengajuan disetujui.':'Pengajuan ditolak.');}catch(err){toast('Gagal menyimpan ('+(err.code||'error')+').');}refresh(true);return;}
   if(d.adminout!==undefined){S.admin=false;try{sessionStorage.removeItem('wvs-admin');}catch(e){}rerenderKeep();return;}
+  if(d.openref){if(e.target.closest('a'))return;e.preventDefault();openRefFile(d.openref);return;}
   if(d.rmph!==undefined){e.stopPropagation();S.form.photos.splice(+d.rmph,1);rerenderKeep();return;}
   if(d.tagpick){pickTag(d.tagpick);return;}
   if(d.tagok!==undefined){closeTagRes(true);const n=S.form?S.form.tags.length:0;toast(n?n+' tag number tersimpan di form.':'Belum ada tag number yang dipilih.');return;}
@@ -1401,7 +1415,8 @@ document.addEventListener('submit',async e=>{if(e.target.id!=='adminForm')return
   else{er.textContent='Password admin salah.';er.style.display='block';$('#adminPw').select();}});
 document.addEventListener('focusin',e=>{if(e.target&&e.target.id==='tagSearch'&&e.target.value.trim().length>=2)updateTagRes();});
 document.addEventListener('mousedown',e=>{const box=document.getElementById('tagRes');if(box&&box.innerHTML&&!e.target.closest('.tagsearch'))box.innerHTML='';});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#lightbox').hidden=true;if(e.target&&(e.target.id==='tagSearch'||(e.target.dataset&&e.target.dataset.tagpick!==undefined)))closeTagRes(true);}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.dataset&&e.target.dataset.openref&&e.target.tagName==='DIV'){openRefFile(e.target.dataset.openref);return;}
+  if(e.key==='Escape'){$('#lightbox').hidden=true;if(e.target&&(e.target.id==='tagSearch'||(e.target.dataset&&e.target.dataset.tagpick!==undefined)))closeTagRes(true);}
   if(e.target&&e.target.id==='tagSearch'){if(e.key==='Enter'){e.preventDefault();const b=document.querySelector('#tagRes [data-tagpick]');if(b)pickTag(b.dataset.tagpick);}else if(e.key==='ArrowDown'){const b=document.querySelector('#tagRes [data-tagpick]');if(b){e.preventDefault();b.focus();}}}
   else if(e.target&&e.target.dataset&&e.target.dataset.tagpick!==undefined){if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const n=e.key==='ArrowDown'?e.target.nextElementSibling:e.target.previousElementSibling;if(n)n.focus();else if(e.key==='ArrowUp'){const i=document.getElementById('tagSearch');if(i)i.focus();}}}});
 $('#menuBtn').addEventListener('click',()=>$('#side').classList.toggle('open'));
