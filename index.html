@@ -374,7 +374,7 @@ mark{background:var(--warn-soft);color:var(--ink)}
 </div>
 <script>
 (function(){
-  const SALT='cnjtiKxou/GSub88w5wzHA==',ITER=250000,KK='wvs-site-key';
+  const SALT='cnjtiKxou/GSub88w5wzHA==',ITER=250000,KK='wvs-site-key',TK='wvs-site-tok',API='';
   let key=null,resolveReady;
   const ready=new Promise(r=>resolveReady=r);
   const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
@@ -386,10 +386,11 @@ mark{background:var(--warn-soft);color:var(--ink)}
     return crypto.subtle.deriveKey({name:'PBKDF2',salt:b64(SALT),iterations:ITER,hash:'SHA-256'},base,{name:'AES-GCM',length:256},true,['decrypt']);}
   function open(){document.getElementById('gate').hidden=true;document.documentElement.style.overflow='';addOut();resolveReady();}
   function addOut(){const top=document.querySelector('header.top');if(!top||document.getElementById('gateOut'))return;const b=document.createElement('button');b.type='button';b.id='gateOut';b.textContent='Keluar';
-    b.addEventListener('click',()=>{try{sessionStorage.removeItem(KK);}catch(e){}location.reload();});top.appendChild(b);}
-  window.WVS_SITE={ready,load};
+    b.addEventListener('click',()=>{try{sessionStorage.removeItem(KK);sessionStorage.removeItem(TK);}catch(e){}location.reload();});top.appendChild(b);}
+  window.WVS_SITE={ready,load,api:API,token:''};
+  async function mkToken(p){const h=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('wvs-api|'+p)));return [...h].map(b=>b.toString(16).padStart(2,'0')).join('');}
   document.documentElement.style.overflow='hidden';
-  (async()=>{try{const raw=sessionStorage.getItem(KK);if(raw){key=await crypto.subtle.importKey('raw',b64(raw),'AES-GCM',false,['decrypt']);if(await check()){open();return;}}}catch(e){}
+  (async()=>{try{const raw=sessionStorage.getItem(KK);if(raw){key=await crypto.subtle.importKey('raw',b64(raw),'AES-GCM',false,['decrypt']);if(await check()){try{window.WVS_SITE.token=sessionStorage.getItem(TK)||'';}catch(e){}open();return;}}}catch(e){}
     key=null;const g=document.getElementById('gPass');if(g)g.focus();})();
   const form=document.getElementById('gForm'),err=document.getElementById('gErr'),btn=document.getElementById('gBtn'),pw=document.getElementById('gPass'),sh=document.getElementById('gShow');
   sh.addEventListener('click',()=>{const on=pw.type==='password';pw.type=on?'text':'password';sh.textContent=on?'Sembunyikan':'Tampilkan';sh.setAttribute('aria-pressed',on);});
@@ -399,7 +400,8 @@ mark{background:var(--warn-soft);color:var(--ink)}
     btn.disabled=true;btn.textContent='Memeriksa…';
     try{key=await derive(p);let ok=false;try{ok=await check();}catch(x){if(x&&x.message==='net'){err.textContent='Gagal terhubung. Periksa koneksi lalu coba lagi.';key=null;return;}}
       if(!ok){key=null;err.textContent='Password salah.';pw.select();return;}
-      try{const raw=new Uint8Array(await crypto.subtle.exportKey('raw',key));sessionStorage.setItem(KK,btoa(String.fromCharCode(...raw)));}catch(x){}
+      window.WVS_SITE.token=await mkToken(p);
+      try{const raw=new Uint8Array(await crypto.subtle.exportKey('raw',key));sessionStorage.setItem(KK,btoa(String.fromCharCode(...raw)));sessionStorage.setItem(TK,window.WVS_SITE.token);}catch(x){}
       open();}
     catch(x){key=null;err.textContent='Browser ini tidak mendukung login aman. Gunakan Chrome, Edge, Firefox atau Safari versi terbaru.';}
     finally{btn.disabled=false;btn.textContent='Masuk';}
@@ -449,6 +451,31 @@ const CONFIRM=[['proc','Assurance process has been adhered to','Witness'],['cove
 const ST=[['Y','Ya'],['C','Dengan catatan'],['T','Tidak'],['N','N/A']];
 
 /* ======================= STORE ======================= */
+/* ===== Shared database via Google Apps Script (website only) ===== */
+const GAS={
+  url(){return SITE&&SITE.api||'';},
+  async call(req){const u=this.url();if(!u)throw Object.assign(new Error('no_api'),{code:'no_api'});
+    let r;try{r=await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({token:SITE.token},req))});}
+    catch(e){throw Object.assign(new Error('offline'),{code:'offline'});}
+    let j;try{j=await r.json();}catch(e){throw Object.assign(new Error('bad_response'),{code:'bad_response'});}
+    if(!j||!j.ok)throw Object.assign(new Error(j&&j.error||'error'),{code:j&&j.error||'error'});return j;},
+  last:0,timer:null,ok:true,
+  apply(docs){let ch=false;for(const d of docs||[]){if(!COLLS.includes(d.coll))continue;const before=S[d.coll].length;
+      S[d.coll]=S[d.coll].filter(x=>x.id!==d.id);if(!d.deleted&&d.data)S[d.coll].push(Object.assign({},d.data,{id:d.id}));ch=true;}
+    if(ch)S.verifs.forEach(v=>{if(Array.isArray(v.items)){const k=scoreOf(v.items);if(k.score!=null)v.score=k.score;}});return ch;},
+  cache(){try{localStorage.setItem(LKEY+'-gas',JSON.stringify({last:this.last,data:Object.fromEntries(COLLS.map(c=>[c,S[c]]))}));}catch(e){}},
+  async sync(full){try{const j=await this.call({op:'list',since:full?0:Math.max(0,this.last-60000)});
+      if(full)COLLS.forEach(c=>S[c]=[]);const ch=this.apply(j.docs);this.last=j.now;this.ok=true;this.cache();pill();if(ch||full)refresh();return j;}
+    catch(e){this.ok=false;pill();throw e;}},
+  start(){clearInterval(this.timer);this.timer=setInterval(()=>{if(!document.hidden)this.sync(false).catch(()=>{});},30000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)this.sync(false).catch(()=>{});});},
+  files:{},
+  async file(fid){if(S.lurl['g:'+fid])return S.lurl['g:'+fid];if(this.files[fid])return this.files[fid];
+    this.files[fid]=this.call({op:'file',fid}).then(j=>{const bin=atob(j.b64);const u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+      const url=URL.createObjectURL(new Blob([u8],{type:j.type||'application/octet-stream'}));S.lurl['g:'+fid]=url;refresh();return url;}).catch(e=>{delete this.files[fid];throw e;});
+    return this.files[fid];}
+};
+const blobToB64=b=>new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]||'');fr.onerror=()=>rej(fr.error);fr.readAsDataURL(b);});
 const store={mode:'connecting',db:null,
   async init(){
     let db=null;
@@ -463,6 +490,15 @@ const store={mode:'connecting',db:null,
           refresh();
         },err=>{clearTimeout(timer);S.loaded[c]=true;toast('Gagal memuat data ('+(err&&err.code||'error')+').');refresh();});
       }
+    } else if(SITE&&SITE.api&&SITE.token){
+      this.mode='gas';
+      try{const raw=localStorage.getItem(LKEY+'-gas');if(raw){const o=JSON.parse(raw);GAS.last=0;for(const c of COLLS)S[c]=(o.data&&o.data[c])||[];}}catch(e){}
+      COLLS.forEach(c=>S.loaded[c]=true);pill();refresh(true);
+      try{await GAS.sync(true);
+        if(!COLLS.some(c=>S[c].length)){try{const sd=await getJSON('data/seed.json');const docs=[];COLLS.forEach(c=>(sd[c]||[]).forEach(d=>{const x=Object.assign({},d);delete x.id;docs.push({coll:c,id:d.id,data:x});}));
+          if(docs.length){await GAS.call({op:'bulk',docs});await GAS.sync(true);}}catch(e){}}
+      }catch(e){toast('Database Google Drive belum bisa dijangkau ('+(e.code||'error')+'). Menampilkan data terakhir yang tersimpan di browser ini.',8000);}
+      GAS.start();
     } else {
       this.mode='local';
       try{const raw=localStorage.getItem(LKEY);if(raw){const o=JSON.parse(raw);for(const c of COLLS)S[c]=o[c]||[];}}catch(e){}
@@ -478,25 +514,30 @@ const store={mode:'connecting',db:null,
   async add(c,data){
     if(this.mode==='db'){const ref=await this.db.collection(c).add(data);return ref.id;}
     const id='l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    if(this.mode==='gas'){await GAS.call({op:'set',coll:c,id,data});S[c]=S[c].filter(d=>d.id!==id).concat([Object.assign({},data,{id})]);GAS.cache();return id;}
     S[c]=S[c].concat([Object.assign({id},data)]);this.persist();return id;
   },
   async setDoc(c,id,data){
     if(this.mode==='db'){await this.db.collection(c).doc(id).set(data);return;}
+    if(this.mode==='gas'){await GAS.call({op:'set',coll:c,id,data});S[c]=S[c].filter(d=>d.id!==id).concat([Object.assign({},data,{id})]);GAS.cache();return;}
     S[c]=S[c].filter(d=>d.id!==id).concat([Object.assign({id},data)]);this.persist();
   },
   async update(c,id,data){
     if(this.mode==='db'){await this.db.collection(c).doc(id).update(data);return;}
+    if(this.mode==='gas'){const cur=S[c].find(d=>d.id===id)||{};const full=Object.assign({},cur,data);delete full.id;await GAS.call({op:'set',coll:c,id,data:full});S[c]=S[c].map(d=>d.id===id?Object.assign({},full,{id}):d);GAS.cache();return;}
     S[c]=S[c].map(d=>d.id===id?Object.assign({},d,data):d);this.persist();
   },
   async del(c,id){
     if(this.mode==='db'){await this.db.collection(c).doc(id).delete();return;}
+    if(this.mode==='gas'){await GAS.call({op:'del',coll:c,id});S[c]=S[c].filter(d=>d.id!==id);GAS.cache();return;}
     S[c]=S[c].filter(d=>d.id!==id);this.persist();
   }
 };
 function pill(){
   const p=document.getElementById('storePill');
   p.className='pill '+store.mode;
-  p.querySelector('span').textContent=store.mode==='db'?'Data tersimpan bersama':store.mode==='local'?'Mode lokal (browser ini)':'Menghubungkan…';
+  if(store.mode==='gas')p.className='pill '+(GAS.ok?'db':'local');
+  p.querySelector('span').textContent=store.mode==='db'?'Data tersimpan bersama':store.mode==='gas'?(GAS.ok?'Data bersama (Google Drive)':'Offline – menunggu sinkron'):store.mode==='local'?'Mode lokal (browser ini)':'Menghubungkan…';
 }
 
 /* ======================= HELPERS ======================= */
@@ -1055,7 +1096,7 @@ function newForm(psNo){
   if(psNo){const o=checklistOptions(psNo);S.form.clKey=o.length?o[0].key:'';const p=psByNo(psNo);S.form.unitArea=p?p.loc:'';}
 }
 function formChecklist(){const f=S.form;if(!f.psNo)return null;const o=checklistOptions(f.psNo);const sel=o.find(x=>x.key===f.clKey)||o[0];return sel?sel.cl:null;}
-function evSrc(e){return e.id?'/_blob/'+e.id:e.lid?(S.lurl[e.lid]||''):e.data;}
+function evSrc(e){if(e.gid){const u=S.lurl['g:'+e.gid];if(!u)GAS.file(e.gid).catch(()=>{});return u||'';}return e.id?'/_blob/'+e.id:e.lid?(S.lurl[e.lid]||''):e.data;}
 function evThumbs(list,key,editable){
   return (list||[]).map((e,k)=>'<div class="evi"><figure data-lb="'+esc(evSrc(e))+'" data-type="'+esc(e.type||'')+'" title="'+esc(e.name||'')+'">'+((e.type||'').startsWith('image/')?'<img src="'+esc(evSrc(e))+'" alt="'+esc(e.name||'evidence')+'">':'<span>'+evLabel(e)+'<br>'+esc((e.name||'').slice(0,14))+'</span>')+(editable?'<button type="button" class="x" data-rmev="'+key+'|'+k+'" aria-label="Hapus bukti">✕</button>':'')+'</figure>'+
     (editable?'<input type="text" class="evcap" data-evcap="'+key+'|'+k+'" value="'+esc(e.cap||'')+'" placeholder="Keterangan" aria-label="Keterangan bukti '+(k+1)+'">':(e.cap?'<span class="evcap-t">'+esc(e.cap)+'</span>':''))+'</div>').join('');
@@ -1394,6 +1435,8 @@ async function putEvidence(f){
     if(kind==='doc'||kind==='xls')throw new Error('file Word/Excel hanya bisa diupload di versi website. Di claude.ai gunakan foto atau PDF.');
     const blob=kind==='img'?await compress(f,1600,.82):f;const type=kind==='img'?'image/jpeg':'application/pdf';
     const r=await S.assets.upload(blob,{type});return {id:r.id,name,type};}
+  if(store.mode==='gas'){const blob=kind==='img'?await compress(f,1600,.82):f;const type=kind==='img'?'image/jpeg':(f.type||EV_MIME[ext]||'application/octet-stream');
+    const j=await GAS.call({op:'upload',name,type,b64:await blobToB64(blob)});S.lurl['g:'+j.fid]=URL.createObjectURL(blob);return {gid:j.fid,name,type};}
   if(store.mode==='db')throw new Error('upload file belum tersedia di tampilan ini.');
   const blob=kind==='img'?await compress(f,1600,.82):f;const type=kind==='img'?'image/jpeg':(f.type||EV_MIME[ext]||'application/octet-stream');
   try{const lid='e'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);await evIDB.put(lid,blob);S.lurl[lid]=URL.createObjectURL(blob);return {lid,name,type};}
@@ -1431,7 +1474,7 @@ async function saveForm(opts){
 
 /* ======================= REPORT WORD ======================= */
 async function imgForDocx(e){
-  try{const r=await fetch(evSrc(e));const blob=await r.blob();const buf=await blob.arrayBuffer();
+  try{if(e.gid)await GAS.file(e.gid);const r=await fetch(evSrc(e));const blob=await r.blob();const buf=await blob.arrayBuffer();
     let w=110,h=82;try{const bm=await createImageBitmap(blob);const s=Math.min(110/bm.width,110/bm.height);w=Math.round(bm.width*s);h=Math.round(bm.height*s);}catch(_){}
     return {data:new Uint8Array(buf),w,h};}catch(err){return null;}
 }
