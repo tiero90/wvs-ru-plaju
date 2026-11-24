@@ -236,6 +236,15 @@ textarea{resize:vertical;min-height:38px}
 .ev figure{margin:0;position:relative;width:84px;height:64px;border-radius:6px;overflow:hidden;border:1px solid var(--line);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);text-align:center;cursor:pointer}
 .ev figure img{width:100%;height:100%;object-fit:cover}
 .evi{display:flex;flex-direction:column;gap:4px;width:150px}
+.phgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:8px 0 4px}
+@media (max-width:620px){.phgrid{grid-template-columns:1fr}}
+.phcard{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface)}
+.phcard figure{margin:0;position:relative;aspect-ratio:4/3;border-radius:6px;overflow:hidden;background:var(--surface2);display:flex;align-items:center;justify-content:center;cursor:zoom-in}
+.phcard figure img{width:100%;height:100%;object-fit:contain}
+.phcard figure .x{position:absolute;top:6px;right:6px;background:#000a;color:#fff;border:0;border-radius:4px;font-size:12px;padding:4px 7px;cursor:pointer}
+.phcard .phno{font-size:12px;font-weight:700;color:var(--muted)}
+.phcard input{font-size:13.5px;width:100%;box-sizing:border-box}
+.phcard .phcap-t{font-size:13.5px;color:var(--ink2);line-height:1.4}
 .evi figure{width:100%!important;min-width:0!important;height:84px}
 .evi input.evcap{font-size:12.5px;padding:5px 7px;width:100%;box-sizing:border-box}
 .evi .evcap-t{font-size:12.5px;color:var(--ink2);line-height:1.35;word-break:break-word}
@@ -928,7 +937,7 @@ function verifSummary(v,w){
     '<div><h3 style="margin-bottom:8px">Verification Results</h3><div class="tbl-wrap"><table><tbody>'+CONFIRM.map(c=>{const x=cf[c[0]];return '<tr><td>'+esc(c[1])+'</td><td style="white-space:nowrap">'+(x==='C'?'<span class="chip good">Confirmed</span>':x==='NC'?'<span class="chip bad">Not Confirmed</span>':x==='TBD'?'<span class="chip warn">To be determined</span>':'–')+'</td></tr>';}).join('')+'</tbody></table></div></div></div>'+
     ((v.recs||[]).length?'<h3>Recommendation</h3><div class="tbl-wrap"><table><thead><tr><th>No</th><th>Rekomendasi</th><th>PIC</th><th>Target Penyelesaian</th><th>Status</th></tr></thead><tbody>'+
       v.recs.map((r,i)=>{const st=r.status||'Open';const c=st==='Closed'?'var(--good)':st==='In Progress'?'var(--warn)':'var(--bad)';return '<tr><td class="n">'+(i+1)+'</td><td class="w">'+esc(r.text)+'</td><td>'+esc(r.pic||'–')+'</td><td class="num">'+fmtDate(r.due)+'</td><td><select data-recstatus="'+esc(v.id)+':'+i+'" aria-label="Status rekomendasi '+(i+1)+'" style="width:auto;font-weight:600;font-size:13px;padding:4px 8px;border-left:5px solid '+c+'">'+['Open','In Progress','Closed'].map(s=>'<option'+(s===st?' selected':'')+'>'+s+'</option>').join('')+'</select></td></tr>';}).join('')+'</tbody></table></div>':'')+
-    '</section>';
+    photosView(v.photos)+'</section>';
 }
 function vWVS(w){
   const p=psByNo(w.psNo);
@@ -1022,7 +1031,7 @@ function formFromVerif(v,w){
   const cl=genChecklist(w,'lengkap');const answers={};
   cl.items.forEach((it,ii)=>it.qs.forEach((q,qi)=>{const x=(v.items||[]).find(y=>y.v===it.code&&y.no===q.no);if(x)answers[ii+'-'+qi]={st:x.st||'',note:x.note||'',ev:(x.ev||[]).slice()};}));
   return {psNo:v.psNo,clKey:'auto:lengkap',tags:(v.tags||[]).slice(),totalTags:v.totalTags||'',tagsRaw:(v.tags||[]).join(', '),tagQ:'',tagFree:'',date:v.date||today(),verifiers:v.verifiers||'',fungsi:v.fungsi||'',unitArea:v.unitArea||'',
-    answers,confirm:Object.assign({},v.confirm||{}),comments:v.comments||'',findings:v.findings||'',remarks:v.remarks||'',recs:(v.recs||[]).map(r=>Object.assign({status:'Open'},r)),saving:false,uploading:0,savedId:v.id};
+    answers,confirm:Object.assign({},v.confirm||{}),comments:v.comments||'',findings:v.findings||'',remarks:v.remarks||'',recs:(v.recs||[]).map(r=>Object.assign({status:'Open'},r)),photos:(v.photos||[]).map(x=>Object.assign({},x)),saving:false,uploading:0,savedId:v.id};
 }
 function vGen(arg){
   const L=S.L;
@@ -1066,6 +1075,7 @@ function vGen(arg){
      '<div class="panel-h"><h3>Recommendation</h3><button class="btn sm" type="button" data-addrec>+ Tambah rekomendasi</button></div>'+
      (f.recs.length?'<div class="tbl-wrap"><table><thead><tr><th>No</th><th>Rekomendasi</th><th>PIC</th><th>Target Penyelesaian</th><th>Prioritas</th><th>Status</th><th></th></tr></thead><tbody>'+f.recs.map((r,i)=>'<tr><td class="n">'+(i+1)+'</td><td style="min-width:260px"><textarea id="rt'+i+'" data-rec="'+i+'" data-f="text" rows="2" aria-label="Rekomendasi '+(i+1)+'">'+esc(r.text)+'</textarea></td><td><input type="text" id="rc'+i+'" data-rec="'+i+'" data-f="pic" value="'+esc(r.pic)+'" aria-label="PIC"></td><td><input type="date" id="rd'+i+'" data-rec="'+i+'" data-f="due" value="'+esc(r.due)+'" aria-label="Target"></td><td><select id="rp'+i+'" data-rec="'+i+'" data-f="prio" aria-label="Prioritas">'+['Tinggi','Sedang','Rendah'].map(x=>'<option'+(x===r.prio?' selected':'')+'>'+x+'</option>').join('')+'</select></td><td><select id="rs'+i+'" data-rec="'+i+'" data-f="status" aria-label="Status rekomendasi">'+['Open','In Progress','Closed'].map(x=>'<option'+(x===(r.status||'Open')?' selected':'')+'>'+x+'</option>').join('')+'</select></td><td><button class="btn sm danger" type="button" data-rmrec="'+i+'">Hapus</button></td></tr>').join('')+'</tbody></table></div>':'<p class="k-label">Belum ada rekomendasi.</p>')+
      '<label class="f wide">Remarks / Note<textarea id="fRem" rows="2">'+esc(f.remarks)+'</textarea></label>'+
+     photosEditor(f)+
      '<h3>Report Sign Off Verifier</h3><div class="fgrid"><label class="f">Nama Verifikator<input type="text" id="fVer" value="'+esc(f.verifiers)+'" placeholder="Nama, pisahkan dengan koma"></label>'+
      '<label class="f">Fungsi<select id="fFun">'+['','Reliability','HSSE','SSIE','EIIE','REIE','MPS','Production','ME','OPI','ICP (pihak ketiga)'].map(x=>'<option'+(x===f.fungsi?' selected':'')+' value="'+x+'">'+(x||'Pilih fungsi…')+'</option>').join('')+'</select></label></div>'+
      (store.mode==='local'?'<p class="note warn">Mode lokal: hasil hanya tersimpan di browser ini.</p>':'')+
@@ -1092,7 +1102,7 @@ function listEd(f,kind){
 }
 const LISTK={gp:['gpList','comments'],fd:['findList','findings']};
 function newForm(psNo){
-  S.form={psNo:psNo||'',clKey:'',tags:[],tagQ:'',tagFree:'',date:today(),verifiers:'',fungsi:'',unitArea:'',answers:{},confirm:{},comments:'',findings:'',remarks:'',recs:[],saving:false,uploading:0};
+  S.form={psNo:psNo||'',clKey:'',tags:[],tagQ:'',tagFree:'',date:today(),verifiers:'',fungsi:'',unitArea:'',answers:{},confirm:{},comments:'',findings:'',remarks:'',recs:[],photos:[],saving:false,uploading:0};
   if(psNo){const o=checklistOptions(psNo);S.form.clKey=o.length?o[0].key:'';const p=psByNo(psNo);S.form.unitArea=p?p.loc:'';}
 }
 function formChecklist(){const f=S.form;if(!f.psNo)return null;const o=checklistOptions(f.psNo);const sel=o.find(x=>x.key===f.clKey)||o[0];return sel?sel.cl:null;}
@@ -1185,6 +1195,7 @@ function vResult(id){
    '<section class="panel"><h2>Tag Disampel</h2>'+((v.tags||[]).length?'<div class="chips">'+v.tags.map(t=>'<span class="chip mono">'+esc(t)+'</span>').join('')+'</div>':'<p>Verifikasi tingkat sistem (tanpa tag).</p>')+'</section>'+
    '<section class="panel"><h2>Hasil per Pertanyaan</h2><div class="tbl-wrap"><table><thead><tr><th>No</th><th>Pertanyaan</th><th>Ref. PS</th><th>Metode</th><th>Hasil</th><th>Penjelasan</th><th>Bukti</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>'+
    '<section class="panel"><h2>Evidence / Dokumentasi</h2>'+(evAll.length?'<div class="ev">'+evAll.map(e=>'<figure data-lb="'+esc(evSrc(e))+'" data-type="'+esc(e.type||'')+'" title="Butir '+esc(e.no)+' · '+esc(e.name||'')+'" style="width:140px;height:104px">'+((e.type||'').startsWith('image/')?'<img src="'+esc(evSrc(e))+'" alt="Bukti butir '+esc(e.no)+'">':'<span>PDF · butir '+esc(e.no)+'</span>')+'</figure>').join('')+'</div>':emptyBox('Tidak ada bukti terlampir.'))+'</section>'+
+   ((v.photos||[]).length?'<section class="panel">'+photosView(v.photos)+'</section>':'')+
    '<section class="panel"><h2>Verification Results</h2><div class="tbl-wrap"><table><thead><tr><th>Confirmation on Specific Items</th><th>Type</th><th>Hasil</th></tr></thead><tbody>'+
    CONFIRM.map(c=>{const x=(v.confirm||{})[c[0]];return '<tr><td>'+esc(c[1])+'</td><td>'+esc(c[2])+'</td><td>'+(x==='C'?'<span class="chip good">Confirmed</span>':x==='NC'?'<span class="chip bad">Not confirmed</span>':x==='TBD'?'<span class="chip warn">To be determined</span>':'–')+'</td></tr>';}).join('')+'</tbody></table></div>'+
    (v.comments?'<div><span class="eyebrow">Good Practice</span><p class="prewrap">'+esc(v.comments)+'</p></div>':'')+(v.findings?'<div><span class="eyebrow">Verification finding</span><p class="prewrap">'+esc(v.findings)+'</p></div>':'')+(v.remarks?'<div><span class="eyebrow">Remarks / note</span><p class="prewrap">'+esc(v.remarks)+'</p></div>':'')+'</section>'+
@@ -1280,7 +1291,7 @@ window.addEventListener('hashchange',()=>{S.confirm=null;S.filt={};render();wind
 
 /* ======================= EVENTS ======================= */
 document.addEventListener('click',async e=>{
-  const t=e.target.closest('[data-submitrep],[data-repdl],[data-genreport],[data-gengo],[data-rmwev],[data-emsdl],[data-gmsdl],[data-export],[data-drill],[data-drillall],[data-hmode],[data-lf],[data-go],[data-href],[data-search],[data-searchcat],[data-stype-go],[data-startform],[data-genmode],[data-gensave],[data-genuse],[data-genai],[data-st],[data-conf],[data-tag],[data-tagall],[data-tagnone],[data-tagadd],[data-addrec],[data-rmrec],[data-tagpick],[data-tagrm],[data-tagok],[data-additem],[data-rmitem],[data-rmev],[data-saveform],[data-resetform],[data-askconfirm],[data-doconfirm],[data-cancelconfirm],[data-stype],[data-scat],[data-eqall],figure[data-lb]');
+  const t=e.target.closest('[data-submitrep],[data-repdl],[data-genreport],[data-gengo],[data-rmwev],[data-emsdl],[data-gmsdl],[data-export],[data-drill],[data-drillall],[data-hmode],[data-lf],[data-go],[data-href],[data-search],[data-searchcat],[data-stype-go],[data-startform],[data-genmode],[data-gensave],[data-genuse],[data-genai],[data-st],[data-conf],[data-tag],[data-tagall],[data-tagnone],[data-tagadd],[data-addrec],[data-rmrec],[data-tagpick],[data-tagrm],[data-tagok],[data-rmph],[data-additem],[data-rmitem],[data-rmev],[data-saveform],[data-resetform],[data-askconfirm],[data-doconfirm],[data-cancelconfirm],[data-stype],[data-scat],[data-eqall],figure[data-lb]');
   if(!t)return;const d=t.dataset;
   if(d.drill){const [dim,val,ata]=d.drill.split('|');S.drill={dim,val,ata,q:''};S.drill[dim]=val;rerenderKeep();const el=document.getElementById('drill');if(el)el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});return;}
   if(d.export!==undefined){exportExcel();return;}
@@ -1317,6 +1328,7 @@ document.addEventListener('click',async e=>{
   if(d.tagall!==undefined){const p=psByNo(S.form.psNo);const tq=S.form.tagQ.toLowerCase();p.tags.filter(t=>!tq||(t.tag+' '+t.unit+' '+(t.desc||'')).toLowerCase().includes(tq)).forEach(t=>{if(!S.form.tags.includes(t.tag))S.form.tags.push(t.tag);});rerenderKeep();return;}
   if(d.tagnone!==undefined){S.form.tags=[];rerenderKeep();return;}
   if(d.tagadd!==undefined){S.form.tagFree.split(',').map(x=>x.trim()).filter(Boolean).forEach(x=>{if(!S.form.tags.includes(x))S.form.tags.push(x);});S.form.tagFree='';rerenderKeep();return;}
+  if(d.rmph!==undefined){e.stopPropagation();S.form.photos.splice(+d.rmph,1);rerenderKeep();return;}
   if(d.tagpick){pickTag(d.tagpick);return;}
   if(d.tagok!==undefined){closeTagRes(true);const n=S.form?S.form.tags.length:0;toast(n?n+' tag number tersimpan di form.':'Belum ada tag number yang dipilih.');return;}
   if(d.tagrm!==undefined){S.form.tags.splice(+d.tagrm,1);S.form.tagsRaw=null;renderTagChips();updateTagRes();return;}
@@ -1351,6 +1363,7 @@ document.addEventListener('input',e=>{
   const t=e.target;const d=t.dataset;
   if(d.ans!==undefined){const a=S.form.answers[d.ans]=S.form.answers[d.ans]||{};a.note=t.value;return;}
   if(d.rec!==undefined){S.form.recs[d.rec][d.f]=t.value;return;}
+  if(d.phcap!==undefined){const p=S.form.photos&&S.form.photos[+d.phcap];if(p)p.cap=t.value;return;}
   if(d.evcap){const [k,i]=d.evcap.split('|');const a=S.form.answers[k];if(a&&a.ev&&a.ev[+i])a.ev[+i].cap=t.value;return;}
   if(d.item){const [kd,i]=d.item.split(':');const k=LISTK[kd];S.form[k[0]][+i]=t.value;S.form[k[1]]=joinList(S.form[k[0]]);return;}
   if(d.genedit!==undefined){const [i,j]=d.genedit.split(':');S.gen.cl.items[i].qs[j].q=t.value;return;}
@@ -1385,6 +1398,7 @@ document.addEventListener('change',async e=>{
     try{await store.setDoc('wvsEvidence',key,{wvsId:wid,no,ev:cur.ev||[],hasil:t.value,updatedAt:new Date().toISOString()});toast('Hasil verifikasi '+no+' disimpan.');}catch(err){toast('Gagal menyimpan ('+(err.code||'error')+').');}refresh(true);return;}
   if(d.wvsev){uploadWvsEvidence(d.wvsev,[...t.files]);t.value='';return;}
   if(d.ev!==undefined){addEvidence(d.ev,[...t.files]);t.value='';return;}
+  if(d.docph!==undefined){addPhotos([...t.files]);t.value='';return;}
 });
 document.addEventListener('submit',async e=>{
   if(e.target.id!=='addForm')return;e.preventDefault();
@@ -1442,6 +1456,24 @@ async function putEvidence(f){
   try{const lid='e'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);await evIDB.put(lid,blob);S.lurl[lid]=URL.createObjectURL(blob);return {lid,name,type};}
   catch(err){if(kind!=='img')throw new Error('penyimpanan file di browser ini tidak tersedia.');const b=await compress(f,720,.6);return {data:await blobToData(b),name,type:'image/jpeg'};}
 }
+
+const PH_MAX=10;
+function photosEditor(f){const ph=f.photos=f.photos||[];const busy=S.phBusy;
+  return '<div class="panel-h"><h3>Dokumentasi Kegiatan</h3><span class="row"><span class="chip num">'+ph.length+' / '+PH_MAX+' foto</span>'+
+    (ph.length<PH_MAX?'<label class="btn sm filebtn">'+(busy?'Mengunggah…':'⤒ Upload foto (maks. 5 MB)')+'<input type="file" accept="image/*" multiple data-docph'+(busy?' disabled':'')+'></label>':'')+'</span></div>'+
+    '<p class="k-label" style="margin:-4px 0 6px">Foto atau screenshot yang menjelaskan aktivitas WVS lebih detail, maksimal '+PH_MAX+' foto, masing-masing maksimal 5 MB. Tambahkan keterangan di bawah setiap foto.</p>'+
+    (ph.length?'<div class="phgrid">'+ph.map((e,i)=>'<div class="phcard"><span class="phno">Foto '+(i+1)+'</span><figure data-lb="'+esc(evSrc(e))+'" data-type="'+esc(e.type||'image/jpeg')+'" title="'+esc(e.name||'')+'"><img src="'+esc(evSrc(e))+'" alt="'+esc(e.cap||e.name||'Dokumentasi '+(i+1))+'"><button type="button" class="x" data-rmph="'+i+'" aria-label="Hapus foto '+(i+1)+'">✕ Hapus</button></figure>'+
+      '<input type="text" data-phcap="'+i+'" value="'+esc(e.cap||'')+'" placeholder="Keterangan foto '+(i+1)+'" aria-label="Keterangan foto '+(i+1)+'"></div>').join('')+'</div>':'');}
+function photosView(list){if(!(list||[]).length)return '';
+  return '<h3>Dokumentasi Kegiatan</h3><div class="phgrid">'+list.map((e,i)=>'<div class="phcard"><span class="phno">Foto '+(i+1)+'</span><figure data-lb="'+esc(evSrc(e))+'" data-type="'+esc(e.type||'image/jpeg')+'" title="'+esc(e.name||'')+'"><img src="'+esc(evSrc(e))+'" alt="'+esc(e.cap||e.name||'Dokumentasi '+(i+1))+'"></figure>'+(e.cap?'<span class="phcap-t">'+esc(e.cap)+'</span>':'')+'</div>').join('')+'</div>';}
+async function addPhotos(files){const f=S.form;f.photos=f.photos||[];const errs=[];S.phBusy=true;rerenderKeep();
+  for(const file of files){
+    if(f.photos.length>=PH_MAX){errs.push('Maksimal '+PH_MAX+' foto; '+file.name+' dan seterusnya tidak diupload.');break;}
+    if(evKind(file)!=='img'){errs.push(file.name+': hanya foto/screenshot yang bisa diupload di Dokumentasi Kegiatan.');continue;}
+    try{f.photos.push(Object.assign(await putEvidence(file),{cap:''}));}
+    catch(err){errs.push(file.name+': '+(err.code?'gagal diunggah ('+err.code+').':(err.message||'gagal diunggah.')));}
+  }
+  S.phBusy=false;if(errs.length)toast(errs.join(' '),9000);rerenderKeep();}
 async function addEvidence(key,files){
   const a=S.form.answers[key]=S.form.answers[key]||{};a.ev=a.ev||[];const errs=[];
   for(const f of files){
@@ -1464,7 +1496,7 @@ async function saveForm(opts){
   const sc=scoreOf(items);
   if(sc.score==null){toast('Isi minimal satu pertanyaan dengan Ya, Dengan catatan, atau Tidak.');return;}
   const doc={psNo:p.no,wvsId:(wvsByPs(p.no)||{}).id||'',clTitle:cl.title,tags:f.tags,date:f.date,verifiers:f.verifiers.trim(),fungsi:f.fungsi,unitArea:f.unitArea,items,confirm:f.confirm,
-    totalTags:(+f.totalTags>0?Math.round(+f.totalTags):null),comments:f.comments,findings:f.findings,remarks:f.remarks,recs:f.recs.filter(r=>r.text.trim()),score:sc.score,nY:sc.y,nC:sc.c,nT:sc.t,createdAt:new Date().toISOString()};
+    photos:(f.photos||[]).map(x=>Object.assign({},x,{cap:(x.cap||'').trim()})),totalTags:(+f.totalTags>0?Math.round(+f.totalTags):null),comments:f.comments,findings:f.findings,remarks:f.remarks,recs:f.recs.filter(r=>r.text.trim()),score:sc.score,nY:sc.y,nC:sc.c,nT:sc.t,createdAt:new Date().toISOString()};
   if(JSON.stringify(doc).length>250000){toast('Bukti foto terlalu besar untuk disimpan sekaligus. Kurangi jumlah foto.');return;}
   f.saving=true;rerenderKeep();
   if(opts&&opts.stay){try{let id=f.savedId;if(id)await store.update('verifs',id,doc);else{id=await store.add('verifs',doc);f.savedId=id;}f.saving=false;return {id,doc};}catch(err){f.saving=false;rerenderKeep();toast(err.code==='not_granted'||err.code==='permission_denied'?'Anda tidak punya izin menyimpan. Minta akses Contributor ke pemilik aplikasi.':'Gagal menyimpan ('+(err.code||'error')+').');return null;}}
@@ -1473,9 +1505,9 @@ async function saveForm(opts){
 }
 
 /* ======================= REPORT WORD ======================= */
-async function imgForDocx(e){
+async function imgForDocx(e,max){max=max||110;
   try{if(e.gid)await GAS.file(e.gid);const r=await fetch(evSrc(e));const blob=await r.blob();const buf=await blob.arrayBuffer();
-    let w=110,h=82;try{const bm=await createImageBitmap(blob);const s=Math.min(110/bm.width,110/bm.height);w=Math.round(bm.width*s);h=Math.round(bm.height*s);}catch(_){}
+    let w=max,h=Math.round(max*.75);try{const bm=await createImageBitmap(blob);const s=Math.min(max/bm.width,max/bm.height);w=Math.round(bm.width*s);h=Math.round(bm.height*s);}catch(_){}
     return {data:new Uint8Array(buf),w,h};}catch(err){return null;}
 }
 async function buildReportDocx(v){
@@ -1530,9 +1562,16 @@ async function buildReportDocx(v){
     new TableRow({children:[cell('Nama Verifikator: '+(v.verifiers||'-')+'\nFungsi: '+(v.fungsi||'-')+'\nTanggal: '+fmtDate(v.date)+'\n\nTanda tangan:\n\n',{span:5})]})
   ],RW);
   const doc=new Document({styles:{default:{document:{run:{font:'Arial',size:16}}}},sections:[{properties:{page:{size:{orientation:PageOrientation.LANDSCAPE,width:11906,height:16838},margin:{top:720,right:720,bottom:720,left:720}}},
-    children:[head,new Paragraph({spacing:{before:160,after:80},children:[run('OPERATIONAL VERIFICATION',{bold:true,size:20,color:NAVY})]}),op,new Paragraph({spacing:{before:160,after:80},children:[]}),res]}]});
+    children:[head,new Paragraph({spacing:{before:160,after:80},children:[run('OPERATIONAL VERIFICATION',{bold:true,size:20,color:NAVY})]}),op,new Paragraph({spacing:{before:160,after:80},children:[]}),res].concat(await docPhotosSection(v,{Table,TableRow,Paragraph,ImageRun,AlignmentType,tbl,cell,H,para,run,NAVY}))}]});
   return Packer.toBlob(doc);
 }
+async function docPhotosSection(v,k){const ph=(v.photos||[]);if(!ph.length)return [];
+  const cells=[];for(let i=0;i<ph.length;i++){const e=ph[i];const im=await imgForDocx(e,300);
+    const kids=[k.para('Foto '+(i+1),{bold:true})];if(im)kids.push(new k.Paragraph({alignment:k.AlignmentType.CENTER,children:[new k.ImageRun({data:im.data,transformation:{width:im.w,height:im.h}})]}));
+    kids.push(k.para(e.cap||'',{italics:true}));cells.push(k.cell(kids,{w:7650}));}
+  if(cells.length%2)cells.push(k.cell('',{w:7650}));const rows=[new k.TableRow({children:[k.H('DOKUMENTASI KEGIATAN',2)]})];
+  for(let i=0;i<cells.length;i+=2)rows.push(new k.TableRow({cantSplit:true,children:[cells[i],cells[i+1]]}));
+  return [new k.Paragraph({spacing:{before:160,after:80},children:[]}),k.tbl(rows,[7650,7650])];}
 async function generateReport(){
   if(!S.dl){toast('Download report hanya tersedia saat aplikasi dibuka di claude.ai.');return;}
   const r=await saveForm({stay:true});if(!r)return;
