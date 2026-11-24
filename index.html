@@ -537,8 +537,9 @@ async function loadEquip(){
   return S._eqp;
 }
 function verifiedTags(psNo){const s=new Set();S.verifs.filter(v=>v.psNo===psNo).forEach(v=>(v.tags||[]).forEach(t=>s.add(t)));return s;}
-function psTotal(p){return Math.max(p.tags.length,1);}
-function psVerCount(p){const vs=S.verifs.filter(v=>v.psNo===p.no);if(!vs.length)return 0;if(!p.tags.length)return 1;const set=verifiedTags(p.no);return p.tags.filter(t=>set.has(t.tag)).length;}
+function psVerifsSorted(no){return S.verifs.filter(v=>v.psNo===no).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||'').localeCompare(a.createdAt||''));}
+function psTotal(p){const v=psVerifsSorted(p.no).find(x=>+x.totalTags>0);return v?+v.totalTags:Math.max(p.tags.length,1);}
+function psVerCount(p){const vs=S.verifs.filter(v=>v.psNo===p.no);if(!vs.length)return 0;const set=new Set();vs.forEach(v=>(v.tags||[]).forEach(t=>set.add(String(t).toUpperCase())));return set.size;}
 function scoreOf(items){let y=0,c=0,t=0;items.forEach(i=>{if(i.st==='Y')y++;else if(i.st==='C')c++;else if(i.st==='T')t++;});const n=y+c+t;return {y,c,t,score:n?Math.round((y+c*.5)/n*100):null};}
 function scoreChip(s){if(typeof s!=='number')return'<span class="chip">–</span>';const c=s>=80?'good':s>=60?'warn':'bad';const l=s>=80?'Sesuai':s>=60?'Perlu perbaikan':'Tidak sesuai';return '<span class="chip '+c+'"><b class="num">'+s+'%</b> '+l+'</span>';}
 const prioChip=p=>'<span class="chip '+(p==='Tinggi'?'bad':p==='Sedang'?'warn':'')+'">'+esc(p||'–')+'</span>';
@@ -979,7 +980,7 @@ function tagPicker(p,f){
 function formFromVerif(v,w){
   const cl=genChecklist(w,'lengkap');const answers={};
   cl.items.forEach((it,ii)=>it.qs.forEach((q,qi)=>{const x=(v.items||[]).find(y=>y.v===it.code&&y.no===q.no);if(x)answers[ii+'-'+qi]={st:x.st||'',note:x.note||'',ev:(x.ev||[]).slice()};}));
-  return {psNo:v.psNo,clKey:'auto:lengkap',tags:(v.tags||[]).slice(),tagsRaw:(v.tags||[]).join(', '),tagQ:'',tagFree:'',date:v.date||today(),verifiers:v.verifiers||'',fungsi:v.fungsi||'',unitArea:v.unitArea||'',
+  return {psNo:v.psNo,clKey:'auto:lengkap',tags:(v.tags||[]).slice(),totalTags:v.totalTags||'',tagsRaw:(v.tags||[]).join(', '),tagQ:'',tagFree:'',date:v.date||today(),verifiers:v.verifiers||'',fungsi:v.fungsi||'',unitArea:v.unitArea||'',
     answers,confirm:Object.assign({},v.confirm||{}),comments:v.comments||'',findings:v.findings||'',remarks:v.remarks||'',recs:(v.recs||[]).map(r=>Object.assign({status:'Open'},r)),saving:false,uploading:0,savedId:v.id};
 }
 function vGen(arg){
@@ -1013,7 +1014,8 @@ function vGen(arg){
       '<tr><th>Scope</th><td colspan="3" class="prewrap">'+esc(p.scope.split('\n').slice(0,6).join('\n'))+'</td></tr>'+
       '<tr><th>SECE Goal</th><td colspan="3">'+esc(p.goal)+'</td></tr>'+
       '<tr><th>Unit Area</th><td><input type="text" id="fUnit" value="'+esc(f.unitArea)+'" aria-label="Unit area"></td><th>Tagging Date</th><td><input type="date" id="fDate" value="'+esc(f.date)+'" aria-label="Tanggal verifikasi"></td></tr>'+
-      '<tr><th>Tag Number</th><td colspan="3">'+tagSelUI(f)+'</td></tr></tbody></table></div>'+
+      '<tr><th>Tag Number</th><td colspan="3">'+tagSelUI(f)+'</td></tr>'+
+      '<tr><th>Total Tag Number</th><td colspan="3"><input type="number" id="fTotal" min="1" step="1" inputmode="numeric" style="max-width:180px" value="'+esc(f.totalTags||'')+'" placeholder="'+(psByNo(f.psNo)?psByNo(f.psNo).tags.length:'')+'" aria-label="Total tag number"> <span class="k-label">Jumlah seluruh tag number pada elemen ini sesuai list SAP. Daftar WVS menampilkan: tag diinput / total tag.</span></td></tr></tbody></table></div>'+
      '<h3>Operational Verification</h3>'+
      '<div class="tbl-wrap"><table class="ckt"><thead><tr><th>No</th><th>Aktivitas / Pertanyaan Verifikasi</th><th>Ref. PS-'+esc(w.psNo)+'</th><th>Metode</th><th class="ck">Ya</th><th class="ck">Dengan Catatan</th><th class="ck">Tidak</th><th>Penjelasan</th><th>Bukti / Dokumentasi</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
      '<div class="row"><span class="chip num">'+filled+' / '+flat.length+' terisi</span>'+(sc.score==null?'':scoreChip(sc.score))+'<span class="k-label">'+sc.y+' ya · '+sc.c+' dengan catatan · '+sc.t+' tidak</span></div>'+
@@ -1312,7 +1314,7 @@ document.addEventListener('input',e=>{
   if(d.item){const [kd,i]=d.item.split(':');const k=LISTK[kd];S.form[k[0]][+i]=t.value;S.form[k[1]]=joinList(S.form[k[0]]);return;}
   if(d.genedit!==undefined){const [i,j]=d.genedit.split(':');S.gen.cl.items[i].qs[j].q=t.value;return;}
   if(d.filter){S.filt[d.filter]=t.value;clearTimeout(ftimer);ftimer=setTimeout(()=>rerenderKeep(t.id),250);return;}
-  const map={fVer:'verifiers',fUnit:'unitArea',fCom:'comments',fFind:'findings',fRem:'remarks',tagFree:'tagFree'};
+  const map={fVer:'verifiers',fUnit:'unitArea',fTotal:'totalTags',fCom:'comments',fFind:'findings',fRem:'remarks',tagFree:'tagFree'};
   if(map[t.id]){S.form[map[t.id]]=t.value;return;}
   if(t.id==='dQ'){S.drill.q=t.value;S.drill.all=false;clearTimeout(ftimer);ftimer=setTimeout(()=>rerenderKeep('dQ'),300);return;}
   if(t.id==='tagSearch'){clearTimeout(S._tsT);S._tsT=setTimeout(updateTagRes,120);return;}
@@ -1419,7 +1421,7 @@ async function saveForm(opts){
   const sc=scoreOf(items);
   if(sc.score==null){toast('Isi minimal satu pertanyaan dengan Ya, Dengan catatan, atau Tidak.');return;}
   const doc={psNo:p.no,wvsId:(wvsByPs(p.no)||{}).id||'',clTitle:cl.title,tags:f.tags,date:f.date,verifiers:f.verifiers.trim(),fungsi:f.fungsi,unitArea:f.unitArea,items,confirm:f.confirm,
-    comments:f.comments,findings:f.findings,remarks:f.remarks,recs:f.recs.filter(r=>r.text.trim()),score:sc.score,nY:sc.y,nC:sc.c,nT:sc.t,createdAt:new Date().toISOString()};
+    totalTags:(+f.totalTags>0?Math.round(+f.totalTags):null),comments:f.comments,findings:f.findings,remarks:f.remarks,recs:f.recs.filter(r=>r.text.trim()),score:sc.score,nY:sc.y,nC:sc.c,nT:sc.t,createdAt:new Date().toISOString()};
   if(JSON.stringify(doc).length>250000){toast('Bukti foto terlalu besar untuk disimpan sekaligus. Kurangi jumlah foto.');return;}
   f.saving=true;rerenderKeep();
   if(opts&&opts.stay){try{let id=f.savedId;if(id)await store.update('verifs',id,doc);else{id=await store.add('verifs',doc);f.savedId=id;}f.saving=false;return {id,doc};}catch(err){f.saving=false;rerenderKeep();toast(err.code==='not_granted'||err.code==='permission_denied'?'Anda tidak punya izin menyimpan. Minta akses Contributor ke pemilik aplikasi.':'Gagal menyimpan ('+(err.code||'error')+').');return null;}}
@@ -1453,7 +1455,7 @@ async function buildReportDocx(v){
     new TableRow({children:[L('Equipment Category'),cell(p.title),L('Custodian'),cell(w?w.cust:p.cust)]}),
     new TableRow({children:[L('Scope'),cell(p.scope.split('\n').slice(0,8).join('\n'),{span:3})]}),
     new TableRow({children:[L('SECE Goal'),cell(p.goal,{span:3})]}),
-    new TableRow({children:[L('Unit Area'),cell(v.unitArea||p.loc||''),L('Tag Number'),cell((v.tags||[]).length?v.tags.join(', '):'Terlampir')]}),
+    new TableRow({children:[L('Unit Area'),cell(v.unitArea||p.loc||''),L('Tag Number'),cell(((v.tags||[]).length?v.tags.join(', '):'Terlampir')+(+v.totalTags>0?'\n('+(v.tags||[]).length+' dari total '+v.totalTags+' tag number)':''))]}),
     new TableRow({children:[L('Tanggal Verifikasi'),cell(fmtDate(v.date)),L('Verifikator'),cell([v.verifiers,v.fungsi].filter(Boolean).join(' · '))]})
   ],[2600,5050,2600,5050]);
   // operational verification
