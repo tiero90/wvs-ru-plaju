@@ -115,7 +115,7 @@ function folder_() {
 function upload_(req) {
   const bytes = Utilities.base64Decode(req.b64 || '');
   if (!bytes.length) throw new Error('empty file');
-  if (bytes.length > 2 * 1024 * 1024 + 1024) throw new Error('file lebih dari 2 MB');
+  if (bytes.length > 5 * 1024 * 1024 + 1024) throw new Error('file lebih dari 5 MB');
   const name = String(req.name || 'evidence').slice(0, 180);
   const blob = Utilities.newBlob(bytes, req.type || 'application/octet-stream', name);
   const file = folder_().createFile(blob);

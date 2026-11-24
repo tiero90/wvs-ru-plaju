@@ -964,7 +964,7 @@ function wvsEvCell(w,q){
       return '<div class="evi">'+(img?'<figure data-lb="'+esc(src)+'" data-type="'+esc(e.type)+'" title="'+esc(e.name||'')+'"><img src="'+esc(src)+'" alt="'+esc(e.name||'evidence')+'"><button type="button" class="x" data-rmwev="'+key+'|'+k+'" aria-label="Hapus evidence">✕</button></figure>'
         :'<figure data-lb="'+esc(src)+'" data-type="'+esc(e.type)+'" title="'+esc(e.name||'')+'" style="width:auto;min-width:84px;padding:0 22px 0 8px"><span>📄 '+esc((e.name||'Dokumen').slice(0,22))+'</span><button type="button" class="x" data-rmwev="'+key+'|'+k+'" aria-label="Hapus evidence">✕</button></figure>')+
         '<input type="text" class="evcap" data-wvscap="'+key+'|'+k+'" value="'+esc(e.cap||'')+'" placeholder="Keterangan" aria-label="Keterangan evidence '+(k+1)+'"></div>';}).join('')+'</div>'+
-    '<label class="btn sm filebtn" style="margin-top:6px">'+(busy?'Mengunggah…':'⤒ Upload evidence (maks. 2 MB)')+'<input type="file" accept="'+EV_ACCEPT+'" multiple data-wvsev="'+key+'|'+esc(w.id)+'|'+esc(q.no)+'"'+(busy?' disabled':'')+'></label>';
+    '<label class="btn sm filebtn" style="margin-top:6px">'+(busy?'Mengunggah…':'⤒ Upload evidence (maks. 5 MB)')+'<input type="file" accept="'+EV_ACCEPT+'" multiple data-wvsev="'+key+'|'+esc(w.id)+'|'+esc(q.no)+'"'+(busy?' disabled':'')+'></label>';
 }
 async function uploadWvsEvidence(spec,files){
   const [key,wid,no]=spec.split('|');S.wvsUp=S.wvsUp||{};S.wvsUp[key]=true;rerenderKeep();
@@ -1046,7 +1046,7 @@ function vGen(arg){
         qs.map(([q,qi])=>{const key=ii+'-'+qi;const a=f.answers[key]||{};
           return '<tr><td class="n">'+esc(q.no)+'</td><td class="w">'+esc(q.q)+'</td><td class="mono" style="white-space:nowrap">'+esc(q.ref||'–')+'</td><td>'+esc(q.met)+'</td>'+chk(key,'Y',a)+chk(key,'C',a)+chk(key,'T',a)+
             '<td style="min-width:200px"><textarea id="fn'+key+'" rows="2" data-ans="'+key+'" aria-label="Penjelasan '+esc(q.no)+'">'+esc(a.note||'')+'</textarea></td>'+
-            '<td style="min-width:150px"><div class="ev">'+evThumbs(a.ev,key,true)+'</div><label class="btn sm filebtn" style="margin-top:4px">⤒ Upload<input type="file" accept="'+EV_ACCEPT+'" multiple data-ev="'+key+'"></label></td></tr>';}).join(''):'';}).join('')).join('');
+            '<td style="min-width:150px"><div class="ev">'+evThumbs(a.ev,key,true)+'</div><label class="btn sm filebtn" style="margin-top:4px">⤒ Upload (maks. 5 MB)<input type="file" accept="'+EV_ACCEPT+'" multiple data-ev="'+key+'"></label></td></tr>';}).join(''):'';}).join('')).join('');
     const flat=cl.items.flatMap((it,ii)=>it.qs.map((q,qi)=>({st:(f.answers[ii+'-'+qi]||{}).st})));const sc=scoreOf(flat);const filled=flat.filter(x=>x.st).length;
     body='<section class="panel cklist"><h2 style="text-align:center">Checklist Verifikasi – Operational Phase</h2>'+
      '<div class="tbl-wrap"><table class="hdr"><tbody>'+
@@ -1409,7 +1409,7 @@ function compress(file,maxW,q){
     img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('decode'));};img.src=url;});
 }
 const blobToData=b=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(b);});
-const EV_MAX=2*1024*1024;
+const EV_MAX=5*1024*1024;
 const EV_ACCEPT='image/*,.pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const EV_MIME={pdf:'application/pdf',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xls:'application/vnd.ms-excel',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'};
 function evKind(f){const n=(f.name||'').toLowerCase();const ext=(n.match(/\.([a-z0-9]+)$/)||[])[1]||'';const t=f.type||'';
@@ -1429,7 +1429,7 @@ S.lurl={};
 async function putEvidence(f){
   const kind=evKind(f);
   if(!kind)throw new Error('format tidak didukung. Gunakan foto/screenshot, PDF, Word atau Excel.');
-  if(f.size>EV_MAX)throw new Error('ukuran '+(f.size/1048576).toFixed(1)+' MB melebihi batas maksimal 2 MB.');
+  if(f.size>EV_MAX)throw new Error('ukuran '+(f.size/1048576).toFixed(1)+' MB melebihi batas maksimal 5 MB.');
   const name=f.name||'evidence';const ext=(name.toLowerCase().match(/\.([a-z0-9]+)$/)||[])[1]||'';
   if(S.assets){
     if(kind==='doc'||kind==='xls')throw new Error('file Word/Excel hanya bisa diupload di versi website. Di claude.ai gunakan foto atau PDF.');

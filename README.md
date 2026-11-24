@@ -17,7 +17,7 @@ Password tidak disimpan di repository. Jika ingin mengganti password, data harus
 
 ## Evidence
 
-Evidence dapat berupa foto, screenshot, PDF, Word (.doc/.docx) atau Excel (.xls/.xlsx), maksimal 2 MB per file.
+Evidence dapat berupa foto, screenshot, PDF, Word (.doc/.docx) atau Excel (.xls/.xlsx), maksimal 5 MB per file.
 
 ## Penyimpanan data
 
