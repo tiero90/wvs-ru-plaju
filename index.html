@@ -56,6 +56,24 @@ a{color:var(--link)}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .mono{font-family:var(--f-mono);font-size:.88em}
+.tagsel{display:flex;flex-direction:column;gap:8px}
+.tagchips{display:flex;flex-wrap:wrap;gap:6px}
+.tchip{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border-radius:8px;background:var(--accent-soft);border:1px solid var(--line);font-size:12.5px;max-width:100%}
+.tchip b{font-family:var(--f-mono);font-weight:600;color:var(--ink)}
+.tchip span{color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.tchip.bad{background:#fdecec;border-color:#f1b5b5}
+.tchip.bad span{color:#b42318}
+.tchip button{border:0;background:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 4px;line-height:1}
+.tagsearch{position:relative;max-width:560px}
+.tagsearch input{width:100%;box-sizing:border-box}
+.tagres{border:1px solid var(--line);border-radius:8px;background:var(--surface);max-height:320px;overflow:auto;margin-top:4px;box-shadow:0 8px 24px #0b1a3014}
+.tagres:empty{display:none}
+.tagres button{display:flex;gap:10px;align-items:baseline;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line2);background:none;padding:8px 10px;cursor:pointer;color:var(--ink);font:inherit;font-size:13px}
+.tagres button:hover,.tagres button:focus{background:var(--accent-soft);outline:none}
+.tagres button b{font-family:var(--f-mono);font-weight:600;white-space:nowrap}
+.tagres button span{color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.tagres button em{font-style:normal;color:var(--muted);font-size:12px;white-space:nowrap}
+.tagres .tnote{padding:8px 10px;font-size:13px;color:var(--muted)}
 .num{font-variant-numeric:tabular-nums}
 .serif{font-family:var(--f-serif)}
 
@@ -622,6 +640,34 @@ function drillTable(){
    rows.slice(0,lim).map(r=>'<tr><td class="mono">'+esc(r[0])+'</td><td>'+esc(r[1])+'</td><td class="mono">'+esc(r[2])+'</td><td style="white-space:nowrap"><span class="mono">'+esc(r[4])+'</span> · '+esc(ECAT[r[4]]||r[4])+'</td><td>'+(r[3]==='SECE'?'<span class="chip" style="background:var(--c-sece);color:var(--accent-ink);border-color:transparent">SECE</span>':r[3]==='SCE'?'<span class="chip" style="background:var(--c-sce);color:#fff;border-color:transparent">SCE</span>':'<span class="chip">Non</span>')+'</td><td>'+esc(r[5])+'</td><td class="mono">'+esc(r[9])+'</td><td class="mono">'+esc(r[6])+'</td><td class="mono">'+esc(r[7])+'</td></tr>').join('')+
    '</tbody></table></div><div class="row"><span class="k-label">'+fmtN(rows.length)+' peralatan'+(rows.length>lim?' · menampilkan '+lim+' pertama':'')+'</span>'+(rows.length>lim?'<button class="btn sm" data-drillall>Tampilkan semua</button>':'')+'</div>';
 }
+
+/* ===== Tag Number search (IH08) ===== */
+function ihIndex(){if(!S.IH)return null;if(!S.IHX){S.IHX={};S.IH.forEach(r=>{S.IHX[String(r[0]).toUpperCase()]=r;});}return S.IHX;}
+function tagSelUI(f){
+  if(!S.IH){loadIH().then(()=>{if(S.route==='gen'||S.route==='form')updateTagRes();renderTagChips();});}else if(f.tagS)setTimeout(updateTagRes,0);
+  return '<div class="tagsel"><div class="tagchips" id="tagChips">'+tagChipsHTML(f)+'</div>'+
+    '<div class="tagsearch"><input type="search" id="tagSearch" autocomplete="off" value="'+esc(f.tagS||'')+'" placeholder="Cari tag number IH08, mis. CD2-P-031 atau deskripsi pompa" aria-label="Cari tag number IH08" aria-controls="tagRes">'+
+    '<div class="tagres" id="tagRes" role="listbox" aria-label="Rekomendasi tag number"></div></div>'+
+    '<span class="k-label" id="tagCount">'+f.tags.length+' tag dipilih · hanya tag number yang terdaftar di IH08 (SAP)</span></div>';
+}
+function tagChipsHTML(f){const ix=ihIndex();
+  return f.tags.map((t,i)=>{const r=ix&&ix[String(t).toUpperCase()];const bad=ix&&!r;
+    return '<span class="tchip'+(bad?' bad':'')+'" title="'+esc(bad?'Tidak ditemukan di IH08':(r?r[1]:''))+'"><b>'+esc(t)+'</b><span>'+esc(bad?'tidak ada di IH08':(r?r[1]:''))+'</span><button type="button" data-tagrm="'+i+'" aria-label="Hapus tag '+esc(t)+'">✕</button></span>';}).join('');}
+function renderTagChips(){const f=S.form;if(!f)return;const c=document.getElementById('tagChips');if(c)c.innerHTML=tagChipsHTML(f);const n=document.getElementById('tagCount');if(n)n.textContent=f.tags.length+' tag dipilih · hanya tag number yang terdaftar di IH08 (SAP)';}
+function tagMatches(q){
+  const Q=q.trim().toUpperCase();if(Q.length<2||!S.IH)return [];const Qn=Q.replace(/[\s\-\/]/g,'');const W=Q.split(/\s+/).filter(Boolean);const have=new Set(S.form.tags.map(x=>String(x).toUpperCase()));
+  const a=[],b=[],c=[];
+  for(const r of S.IH){const T=String(r[0]).toUpperCase();if(have.has(T))continue;const Tn=T.replace(/[\s\-\/]/g,'');
+    if(T.startsWith(Q)||Tn.startsWith(Qn))a.push(r);else if(T.includes(Q)||Tn.includes(Qn))b.push(r);else if(c.length<40){const Dd=String(r[1]||'').toUpperCase();if(W.every(w=>Dd.includes(w)))c.push(r);}
+    if(a.length>=20)break;}
+  return a.concat(b,c).slice(0,20);}
+function updateTagRes(){const box=document.getElementById('tagRes');const inp=document.getElementById('tagSearch');if(!box||!inp||!S.form)return;
+  const q=inp.value;S.form.tagS=q;
+  if(q.trim().length<2){box.innerHTML='';return;}
+  if(!S.IH){box.innerHTML='<div class="tnote">Memuat data IH08…</div>';return;}
+  const m=tagMatches(q);
+  box.innerHTML=m.length?m.map(r=>'<button type="button" role="option" data-tagpick="'+esc(r[0])+'"><b>'+esc(r[0])+'</b><span>'+esc(r[1]||'')+'</span><em>'+esc([r[5],((CRIT.find(c=>c[0]===r[2])||[])[1]||r[2])].filter(Boolean).join(' · '))+'</em></button>').join(''):'<div class="tnote">Tag number tidak ditemukan di IH08.</div>';}
+function pickTag(tag){const f=S.form;if(!f)return;if(!f.tags.some(x=>String(x).toUpperCase()===String(tag).toUpperCase()))f.tags.push(tag);f.tagsRaw=null;renderTagChips();updateTagRes();const i=document.getElementById('tagSearch');if(i)i.focus();}
 function loadIH(){
   if(S._ihp)return S._ihp;
   S._ihp=getJSON('data/ih08.json').then(j=>{j.forEach((r,i)=>{r[10]=i;if(r[3]==='SCE')r[3]='SECE';});S.IH=j;if(S.route==='home')rerenderKeep();}).catch(()=>{S.IH=[];toast('Data IH08 gagal dimuat.');});
@@ -963,7 +1009,7 @@ function vGen(arg){
       '<tr><th>Scope</th><td colspan="3" class="prewrap">'+esc(p.scope.split('\n').slice(0,6).join('\n'))+'</td></tr>'+
       '<tr><th>SECE Goal</th><td colspan="3">'+esc(p.goal)+'</td></tr>'+
       '<tr><th>Unit Area</th><td><input type="text" id="fUnit" value="'+esc(f.unitArea)+'" aria-label="Unit area"></td><th>Tagging Date</th><td><input type="date" id="fDate" value="'+esc(f.date)+'" aria-label="Tanggal verifikasi"></td></tr>'+
-      '<tr><th>Tag Number</th><td colspan="3"><textarea id="fTags" rows="2" placeholder="Ketik tag number yang diverifikasi, pisahkan dengan koma atau baris baru (mis. CD2-P-031/00, CD2-P-032/00)" aria-label="Tag number">'+esc(f.tagsRaw!=null?f.tagsRaw:f.tags.join(', '))+'</textarea><span class="k-label">'+f.tags.length+' tag</span></td></tr></tbody></table></div>'+
+      '<tr><th>Tag Number</th><td colspan="3">'+tagSelUI(f)+'</td></tr></tbody></table></div>'+
      '<h3>Operational Verification</h3>'+
      '<div class="tbl-wrap"><table class="ckt"><thead><tr><th>No</th><th>Aktivitas / Pertanyaan Verifikasi</th><th>Ref. PS-'+esc(w.psNo)+'</th><th>Metode</th><th class="ck">Ya</th><th class="ck">Dengan Catatan</th><th class="ck">Tidak</th><th>Penjelasan</th><th>Bukti / Dokumentasi</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
      '<div class="row"><span class="chip num">'+filled+' / '+flat.length+' terisi</span>'+(sc.score==null?'':scoreChip(sc.score))+'<span class="k-label">'+sc.y+' ya · '+sc.c+' dengan catatan · '+sc.t+' tidak</span></div>'+
@@ -1187,7 +1233,7 @@ window.addEventListener('hashchange',()=>{S.confirm=null;S.filt={};render();wind
 
 /* ======================= EVENTS ======================= */
 document.addEventListener('click',async e=>{
-  const t=e.target.closest('[data-submitrep],[data-repdl],[data-genreport],[data-gengo],[data-rmwev],[data-emsdl],[data-gmsdl],[data-export],[data-drill],[data-drillall],[data-hmode],[data-lf],[data-go],[data-href],[data-search],[data-searchcat],[data-stype-go],[data-startform],[data-genmode],[data-gensave],[data-genuse],[data-genai],[data-st],[data-conf],[data-tag],[data-tagall],[data-tagnone],[data-tagadd],[data-addrec],[data-rmrec],[data-additem],[data-rmitem],[data-rmev],[data-saveform],[data-resetform],[data-askconfirm],[data-doconfirm],[data-cancelconfirm],[data-stype],[data-scat],[data-eqall],figure[data-lb]');
+  const t=e.target.closest('[data-submitrep],[data-repdl],[data-genreport],[data-gengo],[data-rmwev],[data-emsdl],[data-gmsdl],[data-export],[data-drill],[data-drillall],[data-hmode],[data-lf],[data-go],[data-href],[data-search],[data-searchcat],[data-stype-go],[data-startform],[data-genmode],[data-gensave],[data-genuse],[data-genai],[data-st],[data-conf],[data-tag],[data-tagall],[data-tagnone],[data-tagadd],[data-addrec],[data-rmrec],[data-tagpick],[data-tagrm],[data-additem],[data-rmitem],[data-rmev],[data-saveform],[data-resetform],[data-askconfirm],[data-doconfirm],[data-cancelconfirm],[data-stype],[data-scat],[data-eqall],figure[data-lb]');
   if(!t)return;const d=t.dataset;
   if(d.drill){const [dim,val,ata]=d.drill.split('|');S.drill={dim,val,ata,q:''};S.drill[dim]=val;rerenderKeep();const el=document.getElementById('drill');if(el)el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});return;}
   if(d.export!==undefined){exportExcel();return;}
@@ -1224,6 +1270,8 @@ document.addEventListener('click',async e=>{
   if(d.tagall!==undefined){const p=psByNo(S.form.psNo);const tq=S.form.tagQ.toLowerCase();p.tags.filter(t=>!tq||(t.tag+' '+t.unit+' '+(t.desc||'')).toLowerCase().includes(tq)).forEach(t=>{if(!S.form.tags.includes(t.tag))S.form.tags.push(t.tag);});rerenderKeep();return;}
   if(d.tagnone!==undefined){S.form.tags=[];rerenderKeep();return;}
   if(d.tagadd!==undefined){S.form.tagFree.split(',').map(x=>x.trim()).filter(Boolean).forEach(x=>{if(!S.form.tags.includes(x))S.form.tags.push(x);});S.form.tagFree='';rerenderKeep();return;}
+  if(d.tagpick){pickTag(d.tagpick);return;}
+  if(d.tagrm!==undefined){S.form.tags.splice(+d.tagrm,1);S.form.tagsRaw=null;renderTagChips();updateTagRes();return;}
   if(d.addrec!==undefined){S.form.recs.push({text:'',prio:'Sedang',pic:'',due:'',status:'Open'});rerenderKeep();return;}
   if(d.additem){const k=LISTK[d.additem];const f=S.form;if(!f[k[0]])f[k[0]]=splitList(f[k[1]]);f[k[0]].push('');rerenderKeep();const el=document.getElementById(d.additem+(f[k[0]].length-1));if(el)el.focus();return;}
   if(d.rmitem){const [kd,i]=d.rmitem.split(':');const k=LISTK[kd];const f=S.form;f[k[0]].splice(+i,1);f[k[1]]=joinList(f[k[0]]);rerenderKeep();return;}
@@ -1242,7 +1290,9 @@ document.addEventListener('click',async e=>{
   if(t.matches('figure[data-lb]')){if((d.type||'').startsWith('image/')){const lb=$('#lightbox');lb.querySelector('img').src=d.lb;lb.hidden=false;}else if(evLabel({type:d.type,name:t.title})==='PDF'){window.open(d.lb,'_blank');}else{const a=document.createElement('a');a.href=d.lb;a.download=t.title||'evidence';document.body.appendChild(a);a.click();a.remove();}return;}
 });
 $('#lightbox').addEventListener('click',()=>$('#lightbox').hidden=true);
-document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#lightbox').hidden=true;});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#lightbox').hidden=true;
+  if(e.target&&e.target.id==='tagSearch'){if(e.key==='Enter'){e.preventDefault();const b=document.querySelector('#tagRes [data-tagpick]');if(b)pickTag(b.dataset.tagpick);}else if(e.key==='ArrowDown'){const b=document.querySelector('#tagRes [data-tagpick]');if(b){e.preventDefault();b.focus();}}}
+  else if(e.target&&e.target.dataset&&e.target.dataset.tagpick!==undefined){if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const n=e.key==='ArrowDown'?e.target.nextElementSibling:e.target.previousElementSibling;if(n)n.focus();else if(e.key==='ArrowUp'){const i=document.getElementById('tagSearch');if(i)i.focus();}}}});
 $('#menuBtn').addEventListener('click',()=>$('#side').classList.toggle('open'));
 document.addEventListener('click',e=>{const s=$('#side');if(s.classList.contains('open')&&!s.contains(e.target)&&!e.target.closest('#menuBtn'))s.classList.remove('open');});
 $('#searchForm').addEventListener('submit',e=>{e.preventDefault();S.q=$('#q').value.trim();S.searchType=$('#qType').value;S.searchCat='';location.hash==='#search'?render():go('search');});
@@ -1258,6 +1308,7 @@ document.addEventListener('input',e=>{
   const map={fVer:'verifiers',fUnit:'unitArea',fCom:'comments',fFind:'findings',fRem:'remarks',tagFree:'tagFree'};
   if(map[t.id]){S.form[map[t.id]]=t.value;return;}
   if(t.id==='dQ'){S.drill.q=t.value;S.drill.all=false;clearTimeout(ftimer);ftimer=setTimeout(()=>rerenderKeep('dQ'),300);return;}
+  if(t.id==='tagSearch'){clearTimeout(S._tsT);S._tsT=setTimeout(updateTagRes,120);return;}
   if(t.id==='fTags'){S.form.tagsRaw=t.value;S.form.tags=[...new Set(t.value.split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean))];const k=t.parentElement.querySelector('.k-label');if(k)k.textContent=S.form.tags.length+' tag';return;}
   if(t.id==='tagQ'){S.form.tagQ=t.value;clearTimeout(ftimer);ftimer=setTimeout(()=>rerenderKeep('tagQ'),250);return;}
   if(t.id==='rfQ'){S.resFilter.q=t.value;clearTimeout(ftimer);ftimer=setTimeout(()=>rerenderKeep('rfQ'),300);}
