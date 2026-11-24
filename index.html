@@ -336,11 +336,10 @@ mark{background:var(--warn-soft);color:var(--ink)}
 <div id="gate" role="dialog" aria-modal="true" aria-labelledby="gTitle">
   <div class="gcard">
     <div class="gstripe" aria-hidden="true"></div>
-    <div class="ghead"><span class="logo" aria-hidden="true"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24.5" fill="none" stroke="#00a0e3" stroke-width="1.8"/><circle cx="26" cy="26" r="20.5" fill="#ffffff12" stroke="#ffffff30" stroke-width="1"/><g fill="none" stroke="#eaf2f1" stroke-width="1.6" stroke-linecap="round"><rect x="15" y="11" width="8.5" height="25" rx="4.25"/><path d="M15 18.5h8.5M15 24h8.5"/><path d="M23.5 14.5h5.5v4.5"/><path d="M12 39.5h28"/><path d="M17 36v3.5M21.5 36v3.5"/></g><path d="M24 29.5l5 5 10.5-13" fill="none" stroke="#8dc63f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Written Verification Scheme</b><span>Terhadap Inspeksi, Testing, Preventive &amp; Predictive Maintenance Equipment</span><span class="ru">RU III Plaju</span></div></div>
+    <div class="ghead"><span class="logo" aria-hidden="true"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24.5" fill="none" stroke="#00a0e3" stroke-width="1.8"/><circle cx="26" cy="26" r="20.5" fill="#ffffff12" stroke="#ffffff30" stroke-width="1"/><g fill="none" stroke="#eaf2f1" stroke-width="1.6" stroke-linecap="round"><rect x="15" y="11" width="8.5" height="25" rx="4.25"/><path d="M15 18.5h8.5M15 24h8.5"/><path d="M23.5 14.5h5.5v4.5"/><path d="M12 39.5h28"/><path d="M17 36v3.5M21.5 36v3.5"/></g><path d="M24 29.5l5 5 10.5-13" fill="none" stroke="#8dc63f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Written Verification Scheme</b><span>Terhadap Aktivitas Inspection, Testing, Preventive &amp; Predictive Maintenance Equipment</span><span class="ru">RU III Plaju</span></div></div>
     <form id="gForm" autocomplete="on" novalidate>
       <h1 id="gTitle">Masuk</h1>
-      <p class="gsub">Masukkan username dan password untuk membuka aplikasi.</p>
-      <label>Username<input id="gUser" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+      <p class="gsub">Masukkan password untuk membuka aplikasi.</p>
       <label>Password<span class="pw"><input id="gPass" name="password" type="password" autocomplete="current-password" required><button type="button" id="gShow" aria-pressed="false">Tampilkan</button></span></label>
       <p class="gerr" id="gErr" role="alert"></p>
       <button class="gbtn" id="gBtn" type="submit">Masuk</button>
@@ -350,7 +349,7 @@ mark{background:var(--warn-soft);color:var(--ink)}
 </div>
 <script>
 (function(){
-  const SALT='4Y8vowi0/Ix0jLez2rcaMw==',ITER=250000,KK='wvs-site-key';
+  const SALT='cnjtiKxou/GSub88w5wzHA==',ITER=250000,KK='wvs-site-key';
   let key=null,resolveReady;
   const ready=new Promise(r=>resolveReady=r);
   const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
@@ -358,7 +357,7 @@ mark{background:var(--warn-soft);color:var(--ink)}
     const ds=new Response(new Blob([pt]).stream().pipeThrough(new DecompressionStream('gzip')));return ds.text();}
   async function load(p){await ready;const r=await fetch(p+'.enc');if(!r.ok)throw new Error(r.status);return JSON.parse(await decrypt(await r.arrayBuffer()));}
   async function check(){const r=await fetch('data/check.enc',{cache:'no-store'});if(!r.ok)throw new Error('net');return (await decrypt(await r.arrayBuffer()))==='"WVS-OK"';}
-  async function derive(u,p){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(u+'\n'+p),'PBKDF2',false,['deriveKey']);
+  async function derive(p){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(p),'PBKDF2',false,['deriveKey']);
     return crypto.subtle.deriveKey({name:'PBKDF2',salt:b64(SALT),iterations:ITER,hash:'SHA-256'},base,{name:'AES-GCM',length:256},true,['decrypt']);}
   function open(){document.getElementById('gate').hidden=true;document.documentElement.style.overflow='';addOut();resolveReady();}
   function addOut(){const top=document.querySelector('header.top');if(!top||document.getElementById('gateOut'))return;const b=document.createElement('button');b.type='button';b.id='gateOut';b.textContent='Keluar';
@@ -366,15 +365,15 @@ mark{background:var(--warn-soft);color:var(--ink)}
   window.WVS_SITE={ready,load};
   document.documentElement.style.overflow='hidden';
   (async()=>{try{const raw=sessionStorage.getItem(KK);if(raw){key=await crypto.subtle.importKey('raw',b64(raw),'AES-GCM',false,['decrypt']);if(await check()){open();return;}}}catch(e){}
-    key=null;const u=document.getElementById('gUser');if(u)u.focus();})();
+    key=null;const g=document.getElementById('gPass');if(g)g.focus();})();
   const form=document.getElementById('gForm'),err=document.getElementById('gErr'),btn=document.getElementById('gBtn'),pw=document.getElementById('gPass'),sh=document.getElementById('gShow');
   sh.addEventListener('click',()=>{const on=pw.type==='password';pw.type=on?'text':'password';sh.textContent=on?'Sembunyikan':'Tampilkan';sh.setAttribute('aria-pressed',on);});
   form.addEventListener('submit',async e=>{e.preventDefault();err.textContent='';
-    const u=document.getElementById('gUser').value.trim(),p=pw.value;
-    if(!u||!p){err.textContent='Username dan password wajib diisi.';return;}
+    const p=pw.value;
+    if(!p){err.textContent='Password wajib diisi.';pw.focus();return;}
     btn.disabled=true;btn.textContent='Memeriksa…';
-    try{key=await derive(u,p);let ok=false;try{ok=await check();}catch(x){if(x&&x.message==='net'){err.textContent='Gagal terhubung. Periksa koneksi lalu coba lagi.';key=null;return;}}
-      if(!ok){key=null;err.textContent='Username atau password salah.';pw.select();return;}
+    try{key=await derive(p);let ok=false;try{ok=await check();}catch(x){if(x&&x.message==='net'){err.textContent='Gagal terhubung. Periksa koneksi lalu coba lagi.';key=null;return;}}
+      if(!ok){key=null;err.textContent='Password salah.';pw.select();return;}
       try{const raw=new Uint8Array(await crypto.subtle.exportKey('raw',key));sessionStorage.setItem(KK,btoa(String.fromCharCode(...raw)));}catch(x){}
       open();}
     catch(x){key=null;err.textContent='Browser ini tidak mendukung login aman. Gunakan Chrome, Edge, Firefox atau Safari versi terbaru.';}
@@ -388,7 +387,7 @@ mark{background:var(--warn-soft);color:var(--ink)}
 <div class="app">
   <aside class="side" id="side" aria-label="Navigasi utama">
     <div class="brand-stripe" aria-hidden="true"></div>
-    <div class="brand"><span class="logo" role="img" aria-label="Logo WVS RU III Plaju"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24.5" fill="none" stroke="#00a0e3" stroke-width="1.8"/><circle cx="26" cy="26" r="20.5" fill="#ffffff12" stroke="#ffffff30" stroke-width="1"/><g fill="none" stroke="#eaf2f1" stroke-width="1.6" stroke-linecap="round"><rect x="15" y="11" width="8.5" height="25" rx="4.25"/><path d="M15 18.5h8.5M15 24h8.5"/><path d="M23.5 14.5h5.5v4.5"/><path d="M12 39.5h28"/><path d="M17 36v3.5M21.5 36v3.5"/></g><path d="M24 29.5l5 5 10.5-13" fill="none" stroke="#8dc63f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Written Verification Scheme</b><span>Terhadap Inspeksi, Testing, Preventive &amp; Predictive Maintenance Equipment</span><span class="ru">RU III Plaju</span></div></div>
+    <div class="brand"><span class="logo" role="img" aria-label="Logo WVS RU III Plaju"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24.5" fill="none" stroke="#00a0e3" stroke-width="1.8"/><circle cx="26" cy="26" r="20.5" fill="#ffffff12" stroke="#ffffff30" stroke-width="1"/><g fill="none" stroke="#eaf2f1" stroke-width="1.6" stroke-linecap="round"><rect x="15" y="11" width="8.5" height="25" rx="4.25"/><path d="M15 18.5h8.5M15 24h8.5"/><path d="M23.5 14.5h5.5v4.5"/><path d="M12 39.5h28"/><path d="M17 36v3.5M21.5 36v3.5"/></g><path d="M24 29.5l5 5 10.5-13" fill="none" stroke="#8dc63f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Written Verification Scheme</b><span>Terhadap Aktivitas Inspection, Testing, Preventive &amp; Predictive Maintenance Equipment</span><span class="ru">RU III Plaju</span></div></div>
     <nav class="nav" id="nav"></nav>
     <div class="side-foot" style="border:0;background:none;padding:14px 4px 0;text-align:left">© 2026 Reliability RU III Plaju</div>
   </aside>
@@ -585,7 +584,7 @@ function vHome(){
   const ems=L.ems.length+S.docs.filter(d=>d.type==='EMS').length, gms=L.gms.length+S.docs.filter(d=>d.type==='GMS').length;
   return '<div class="wrap">'+
    '<section class="hero"><div class="hero-l"><span class="wvs-mark"><b>Written Verification Scheme</b><span>RU III Plaju</span></span>'+
-     '<h1>Inspection, Testing, Preventive &amp; Predictive Maintenance Equipment</h1>'+
+     '<h1>Terhadap Aktivitas Inspection, Testing, Preventive &amp; Predictive Maintenance Equipment</h1>'+
      '<p class="lead">Pustaka strategi pemeliharaan (GMS, EMS), Performance Standard SECE, dan skema verifikasi tertulis untuk memastikan Means of Assurance peralatan dijalankan dan dibuktikan di lapangan.</p>'+
      '<div class="row"><a class="btn pri" href="#gen">Mulai verifikasi</a><a class="btn" href="#wvs">Buka WVS</a></div></div>'+
    '<div class="darkcard"><span>Tag Number Equipment terdaftar di SAP per 1 November 2026</span><span class="big">'+fmtN(I.total)+'</span>'+

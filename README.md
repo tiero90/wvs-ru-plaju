@@ -4,9 +4,9 @@ Aplikasi web untuk memonitor pelaksanaan Written Verification Scheme (WVS) terha
 
 ## Akses
 
-Aplikasi dibuka melalui halaman login (username dan password). Seluruh data aplikasi di folder `data/` tersimpan dalam bentuk terenkripsi (AES-256-GCM, kunci diturunkan dari username dan password dengan PBKDF2). Tanpa username dan password yang benar, data tidak dapat dibaca, termasuk oleh orang yang membuka repository ini.
+Aplikasi dibuka melalui halaman login (password). Seluruh data aplikasi di folder `data/` tersimpan dalam bentuk terenkripsi (AES-256-GCM, kunci diturunkan dari password dengan PBKDF2). Tanpa password yang benar, data tidak dapat dibaca, termasuk oleh orang yang membuka repository ini.
 
-Username dan password tidak disimpan di repository. Jika ingin mengganti password, data harus dienkripsi ulang dengan password baru.
+Password tidak disimpan di repository. Jika ingin mengganti password, data harus dienkripsi ulang dengan password baru.
 
 ## Isi aplikasi
 
