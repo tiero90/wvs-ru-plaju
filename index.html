@@ -214,6 +214,10 @@ textarea{resize:vertical;min-height:38px}
 .ev{display:flex;flex-wrap:wrap;gap:8px}
 .ev figure{margin:0;position:relative;width:84px;height:64px;border-radius:6px;overflow:hidden;border:1px solid var(--line);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);text-align:center;cursor:pointer}
 .ev figure img{width:100%;height:100%;object-fit:cover}
+.evi{display:flex;flex-direction:column;gap:4px;width:150px}
+.evi figure{width:100%!important;min-width:0!important;height:84px}
+.evi input.evcap{font-size:12.5px;padding:5px 7px;width:100%;box-sizing:border-box}
+.evi .evcap-t{font-size:12.5px;color:var(--ink2);line-height:1.35;word-break:break-word}
 .ev figure .x{position:absolute;top:2px;right:2px;background:#000a;color:#fff;border:0;border-radius:3px;font-size:11px;line-height:1;padding:3px 5px;cursor:pointer}
 .filebtn{position:relative;overflow:hidden}
 .filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
@@ -865,8 +869,9 @@ function wvsEvCell(w,q){
   const key=wvsEvKey(w,q);const doc=S.wvsEvidence.find(x=>x.id===key);const ev=(doc&&doc.ev)||[];
   const busy=S.wvsUp&&S.wvsUp[key];
   return '<div class="ev">'+ev.map((e,k)=>{const img=(e.type||'').startsWith('image/');const src=evSrc(e);
-      return img?'<figure data-lb="'+esc(src)+'" data-type="'+esc(e.type)+'" title="'+esc(e.name||'')+'"><img src="'+esc(src)+'" alt="'+esc(e.name||'evidence')+'"><button type="button" class="x" data-rmwev="'+key+'|'+k+'" aria-label="Hapus evidence">✕</button></figure>'
-        :'<figure data-lb="'+esc(src)+'" data-type="'+esc(e.type)+'" title="'+esc(e.name||'')+'" style="width:auto;min-width:84px;padding:0 22px 0 8px"><span>📄 '+esc((e.name||'Dokumen').slice(0,22))+'</span><button type="button" class="x" data-rmwev="'+key+'|'+k+'" aria-label="Hapus evidence">✕</button></figure>';}).join('')+'</div>'+
+      return '<div class="evi">'+(img?'<figure data-lb="'+esc(src)+'" data-type="'+esc(e.type)+'" title="'+esc(e.name||'')+'"><img src="'+esc(src)+'" alt="'+esc(e.name||'evidence')+'"><button type="button" class="x" data-rmwev="'+key+'|'+k+'" aria-label="Hapus evidence">✕</button></figure>'
+        :'<figure data-lb="'+esc(src)+'" data-type="'+esc(e.type)+'" title="'+esc(e.name||'')+'" style="width:auto;min-width:84px;padding:0 22px 0 8px"><span>📄 '+esc((e.name||'Dokumen').slice(0,22))+'</span><button type="button" class="x" data-rmwev="'+key+'|'+k+'" aria-label="Hapus evidence">✕</button></figure>')+
+        '<input type="text" class="evcap" data-wvscap="'+key+'|'+k+'" value="'+esc(e.cap||'')+'" placeholder="Keterangan" aria-label="Keterangan evidence '+(k+1)+'"></div>';}).join('')+'</div>'+
     '<label class="btn sm filebtn" style="margin-top:6px">'+(busy?'Mengunggah…':'⤒ Upload evidence (maks. 2 MB)')+'<input type="file" accept="'+EV_ACCEPT+'" multiple data-wvsev="'+key+'|'+esc(w.id)+'|'+esc(q.no)+'"'+(busy?' disabled':'')+'></label>';
 }
 async function uploadWvsEvidence(spec,files){
@@ -1000,7 +1005,8 @@ function newForm(psNo){
 function formChecklist(){const f=S.form;if(!f.psNo)return null;const o=checklistOptions(f.psNo);const sel=o.find(x=>x.key===f.clKey)||o[0];return sel?sel.cl:null;}
 function evSrc(e){return e.id?'/_blob/'+e.id:e.lid?(S.lurl[e.lid]||''):e.data;}
 function evThumbs(list,key,editable){
-  return (list||[]).map((e,k)=>'<figure data-lb="'+esc(evSrc(e))+'" data-type="'+esc(e.type||'')+'" title="'+esc(e.name||'')+'">'+((e.type||'').startsWith('image/')?'<img src="'+esc(evSrc(e))+'" alt="'+esc(e.name||'evidence')+'">':'<span>'+evLabel(e)+'<br>'+esc((e.name||'').slice(0,14))+'</span>')+(editable?'<button type="button" class="x" data-rmev="'+key+'|'+k+'" aria-label="Hapus bukti">✕</button>':'')+'</figure>').join('');
+  return (list||[]).map((e,k)=>'<div class="evi"><figure data-lb="'+esc(evSrc(e))+'" data-type="'+esc(e.type||'')+'" title="'+esc(e.name||'')+'">'+((e.type||'').startsWith('image/')?'<img src="'+esc(evSrc(e))+'" alt="'+esc(e.name||'evidence')+'">':'<span>'+evLabel(e)+'<br>'+esc((e.name||'').slice(0,14))+'</span>')+(editable?'<button type="button" class="x" data-rmev="'+key+'|'+k+'" aria-label="Hapus bukti">✕</button>':'')+'</figure>'+
+    (editable?'<input type="text" class="evcap" data-evcap="'+key+'|'+k+'" value="'+esc(e.cap||'')+'" placeholder="Keterangan" aria-label="Keterangan bukti '+(k+1)+'">':(e.cap?'<span class="evcap-t">'+esc(e.cap)+'</span>':''))+'</div>').join('');
 }
 function vForm(psNo){
   if(!S.form||(psNo&&S.form.psNo!==psNo))newForm(psNo||'');
@@ -1245,6 +1251,7 @@ document.addEventListener('input',e=>{
   const t=e.target;const d=t.dataset;
   if(d.ans!==undefined){const a=S.form.answers[d.ans]=S.form.answers[d.ans]||{};a.note=t.value;return;}
   if(d.rec!==undefined){S.form.recs[d.rec][d.f]=t.value;return;}
+  if(d.evcap){const [k,i]=d.evcap.split('|');const a=S.form.answers[k];if(a&&a.ev&&a.ev[+i])a.ev[+i].cap=t.value;return;}
   if(d.item){const [kd,i]=d.item.split(':');const k=LISTK[kd];S.form[k[0]][+i]=t.value;S.form[k[1]]=joinList(S.form[k[0]]);return;}
   if(d.genedit!==undefined){const [i,j]=d.genedit.split(':');S.gen.cl.items[i].qs[j].q=t.value;return;}
   if(d.filter){S.filt[d.filter]=t.value;clearTimeout(ftimer);ftimer=setTimeout(()=>rerenderKeep(t.id),250);return;}
@@ -1257,6 +1264,10 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',async e=>{
   const t=e.target;const d=t.dataset;
+  if(d.wvscap){const [key,i]=d.wvscap.split('|');const cur=S.wvsEvidence.find(x=>x.id===key);if(!cur||!(cur.ev||[])[+i])return;
+    const ev=cur.ev.map((x,k)=>k===+i?Object.assign({},x,{cap:t.value.trim()}):x);
+    try{await store.setDoc('wvsEvidence',key,{wvsId:cur.wvsId||'',no:cur.no||'',ev,hasil:cur.hasil||'',updatedAt:new Date().toISOString()});toast('Keterangan evidence tersimpan.');}catch(err){toast('Keterangan gagal disimpan ('+(err.code||'error')+').');}
+    return;}
   if(t.id==='genW'){go('gen',t.value);return;}
   if(d.wst){const ps=d.wst;try{await store.setDoc('wvsStatus',slug(ps),{psNo:ps,status:t.value,updatedAt:new Date().toISOString()});toast('Status '+ps+' diubah menjadi '+WST[t.value][0]+'.');refresh(true);}catch(err){toast('Status gagal disimpan ('+(err.code||'error')+').');refresh(true);}return;}
   if(['dCrit','dAta','dLoc','dCat'].includes(t.id)){const k={dCrit:'crit',dAta:'ata',dLoc:'loc',dCat:'cat'}[t.id];S.drill[k]=t.value;S.drill.dim='';S.drill.all=false;rerenderKeep();return;}
@@ -1395,7 +1406,7 @@ async function buildReportDocx(v){
     if(it.v!==lastV){const wi=w&&w.items.find(x=>x.code===it.v);
       rows.push(new TableRow({children:[cell(it.v,{fill:LBLUE,run:{bold:true}}),cell([new Paragraph({children:[run(it.vt,{bold:true})]}),new Paragraph({children:[run('Aktivitas WVS: ',{bold:true}),run(wi?wi.act:'')]})],{fill:LBLUE,span:8})]}));lastV=it.v;lastSec='';}
     if(it.sec!==lastSec){rows.push(new TableRow({children:[cell(it.sec==='off'?'A. Off-site Verification':'B. On-site Verification',{fill:GREY,run:{bold:true},span:9})]}));lastSec=it.sec;}
-    const ev=[];for(const e of it.ev||[]){if((e.type||'').startsWith('image/')){const im=await imgForDocx(e);if(im){ev.push(new Paragraph({children:[new ImageRun({data:im.data,transformation:{width:im.w,height:im.h}})]}));continue;}}ev.push(para('📄 '+(e.name||'Dokumen')));}
+    const ev=[];for(const e of it.ev||[]){if((e.type||'').startsWith('image/')){const im=await imgForDocx(e);if(im){ev.push(new Paragraph({children:[new ImageRun({data:im.data,transformation:{width:im.w,height:im.h}})]}));if(e.cap)ev.push(para(e.cap,{italics:true,size:14}));continue;}}ev.push(para('📄 '+(e.name||'Dokumen')));if(e.cap)ev.push(para(e.cap,{italics:true,size:14}));}
     if(!ev.length)ev.push(para(''));
     const mark=s=>cell(it.st===s?'✓':'',{para:{alignment:AlignmentType.CENTER},run:{bold:true,size:20}});
     rows.push(new TableRow({cantSplit:true,children:[cell(it.no,{fill:GREY}),cell(it.q),cell(it.ref),cell(it.met),mark('Y'),mark('C'),mark('T'),cell(it.note||''),cell(ev)]}));
