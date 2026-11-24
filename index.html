@@ -450,9 +450,9 @@ mark{background:var(--warn-soft);color:var(--ink)}
 /* ======================= STATE ======================= */
 const SITE=window.WVS_SITE||null;
 function getJSON(p){return SITE?SITE.load(p):fetch(p).then(r=>{if(!r.ok)throw new Error(r.status);return r.json();});}
-const S={L:null,EQ:null,docs:[],checklists:[],verifs:[],wvsStatus:[],wvsEvidence:[],route:'dashboard',arg:'',q:'',form:null,gen:null,openNav:new Set(['sec-chk']),
+const S={L:null,EQ:null,docs:[],checklists:[],verifs:[],wvsStatus:[],wvsEvidence:[],requests:[],route:'dashboard',arg:'',q:'',form:null,gen:null,openNav:new Set(['sec-chk']),
   assets:null,sample:null,loaded:{},confirm:null,resFilter:{ps:'',q:''},searchType:'',searchCat:'',filt:{},drill:{},lf:{},hmode:'abs',IH:null};
-const COLLS=['docs','checklists','verifs','wvsStatus','wvsEvidence'];
+const COLLS=['docs','checklists','verifs','wvsStatus','wvsEvidence','requests'];
 const LKEY='wvs-plaju-local-v2';
 const TYPES={GMS:'Generic Maintenance Strategy',EMS:'Equipment Maintenance Strategy',PS:'Performance Standard',WVS:'Written Verification Scheme',TKO:'TKO / TKI / Pedoman'};
 const ASPECT={F:'Functionality',A:'Availability',R:'Reliability',S:'Survivability',I:'Interdependence'};
@@ -519,7 +519,7 @@ const store={mode:'connecting',db:null,
     }
     pill();refresh(true);
   },
-  persist(){try{localStorage.setItem(LKEY,JSON.stringify({docs:S.docs,checklists:S.checklists,verifs:S.verifs,wvsStatus:S.wvsStatus,wvsEvidence:S.wvsEvidence}));}catch(e){}},
+  persist(){try{localStorage.setItem(LKEY,JSON.stringify(Object.fromEntries(COLLS.map(c=>[c,S[c]]))));}catch(e){}},
   async add(c,data){
     if(this.mode==='db'){const ref=await this.db.collection(c).add(data);return ref.id;}
     const id='l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -597,11 +597,11 @@ function stChip(s){return s==='Y'?'<span class="chip good">Ya</span>':s==='C'?'<
 
 /* ======================= NAV ======================= */
 const TABS=[['home','⌂','Beranda'],['gms','▤','Generic Maintenance Strategy'],['ems','▦','Equipment Maintenance Strategy'],['ps','◎','Performance Standard'],['wvs','✓','Written Verification Scheme'],['ref','❐','Reference']];
-const WVS_SUB=[['wvs','Daftar WVS'],['gen','Input Verifikasi']];
+const WVS_SUB=[['wvs','Daftar WVS'],['gen','Input Verifikasi'],['admin','Admin']];
 const TAB_NAME={home:'Beranda',gms:'Generic Maintenance Strategy',ems:'Equipment Maintenance Strategy',ps:'Performance Standard',wvs:'Written Verification Scheme',ref:'Reference'};
 function activeTab(){
   const r=S.route;
-  if(['monitor','gen','form','results','result'].includes(r))return 'wvs';
+  if(['monitor','gen','form','results','result','admin'].includes(r))return 'wvs';
   if(r==='add')return 'ref';
   if(r==='doc'){const d=S.L&&docById(S.arg);if(d)return d.type==='TKO'?'ref':d.type.toLowerCase();}
   return TAB_NAME[r]?r:'';
@@ -1033,16 +1033,49 @@ function formFromVerif(v,w){
   return {psNo:v.psNo,clKey:'auto:lengkap',tags:(v.tags||[]).slice(),totalTags:v.totalTags||'',tagsRaw:(v.tags||[]).join(', '),tagQ:'',tagFree:'',date:v.date||today(),verifiers:v.verifiers||'',fungsi:v.fungsi||'',unitArea:v.unitArea||'',
     answers,confirm:Object.assign({},v.confirm||{}),comments:v.comments||'',findings:v.findings||'',remarks:v.remarks||'',recs:(v.recs||[]).map(r=>Object.assign({status:'Open'},r)),photos:(v.photos||[]).map(x=>Object.assign({},x)),saving:false,uploading:0,savedId:v.id};
 }
+
+/* ======================= ADMIN APPROVAL ======================= */
+const ADMIN_HASH='283c7e641ac734af06bbe2a7336d1f72a344978cc9f1f4b02fdfb2b8c17e56f1';
+S.admin=(()=>{try{return sessionStorage.getItem('wvs-admin')==='1';}catch(e){return false;}})();
+async function adminCheck(pw){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']);
+  const bits=new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode('wvs-ru3-admin-salt'),iterations:100000,hash:'SHA-256'},base,256));
+  return [...bits].map(b=>b.toString(16).padStart(2,'0')).join('')===ADMIN_HASH;}
+function reqsFor(psNo){return S.requests.filter(r=>r.psNo===psNo).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));}
+function reqStChip(st){return st==='approved'?'<span class="chip good">Disetujui</span>':st==='rejected'?'<span class="chip bad">Ditolak</span>':st==='used'?'<span class="chip">Sudah dipakai</span>':'<span class="chip warn">Menunggu</span>';}
+function newWvsControls(w,lastV){const g=S.gen||{};const rs=reqsFor(w.psNo);const appr=rs.find(r=>r.status==='approved');const pend=rs.find(r=>r.status==='pending');
+  let h='<div class="row" style="flex-wrap:wrap;gap:8px;align-items:center"><span class="chip good">Sudah diverifikasi '+fmtDate(lastV.date)+' · edit isian di bawah lalu Submit ulang</span>';
+  if(S.admin)h+='<button class="btn pri" type="button" data-genfresh="admin">Mulai WVS baru (admin)</button>';
+  else if(appr)h+='<button class="btn pri" type="button" data-genfresh="'+esc(appr.id)+'">Mulai WVS baru (disetujui admin)</button>';
+  else if(pend)h+='<span class="chip warn">Pengajuan WVS baru oleh '+esc(pend.name||'–')+' menunggu persetujuan admin</span>';
+  else h+='<button class="btn" type="button" data-reqopen>Ajukan WVS baru</button>';
+  h+='</div>';
+  if(g.reqOpen&&!pend&&!appr&&!S.admin)h+='<div class="panel" style="margin-top:10px;padding:14px"><h3 style="margin-bottom:6px">Pengajuan WVS baru untuk '+esc(w.no)+'</h3><p class="k-label" style="margin-bottom:10px">Elemen ini sudah memiliki WVS. Input WVS baru memerlukan persetujuan admin.</p>'+
+    '<div class="fgrid"><label class="f">Nama pengaju<input type="text" id="reqName" autocomplete="name"></label><label class="f">Fungsi<input type="text" id="reqFungsi"></label><label class="f wide">Alasan / keperluan WVS baru<textarea id="reqReason" rows="2" placeholder="mis. verifikasi periode berikutnya, tag number berbeda, dll."></textarea></label></div>'+
+    '<div class="row" style="margin-top:8px"><button class="btn pri" type="button" data-reqsend="'+esc(w.psNo)+'">Kirim pengajuan</button><button class="btn" type="button" data-reqcancel>Batal</button></div></div>';
+  return h;}
+function vAdmin(){
+  if(!S.admin)return '<div class="wrap">'+wvsTabs()+'<section class="panel" style="max-width:460px"><h2>Login Admin</h2><p class="k-label" style="margin-bottom:12px">Masuk sebagai admin untuk menyetujui atau menolak pengajuan WVS baru.</p>'+
+    '<form id="adminForm" class="fgrid" style="grid-template-columns:1fr"><label class="f">Password admin<input type="password" id="adminPw" autocomplete="current-password"></label><p class="note" id="adminErr" style="display:none;color:var(--bad)"></p><div><button class="btn pri" type="submit">Masuk</button></div></form></section></div>';
+  const rs=S.requests.slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));const pend=rs.filter(r=>r.status==='pending');
+  const row=r=>{const w=wvsByPs(r.psNo);const p=psByNo(r.psNo);return '<tr><td class="num" style="white-space:nowrap">'+fmtDate((r.createdAt||'').slice(0,10))+'</td><td><b class="mono">'+esc(w?w.no:r.psNo)+'</b> '+esc(p?p.title:'')+'</td><td>'+esc(r.name||'–')+(r.fungsi?'<div class="k-label">'+esc(r.fungsi)+'</div>':'')+'</td><td class="prewrap" style="min-width:200px">'+esc(r.reason||'–')+'</td><td>'+reqStChip(r.status)+'</td><td style="white-space:nowrap">'+
+    (r.status==='pending'?'<button class="btn sm pri" type="button" data-reqdecide="'+esc(r.id)+':approved">Setujui</button> <button class="btn sm danger" type="button" data-reqdecide="'+esc(r.id)+':rejected">Tolak</button>':'')+'</td></tr>';};
+  const tbl=list=>list.length?'<div class="tbl-wrap"><table><thead><tr><th>Tanggal</th><th>Elemen WVS</th><th>Pengaju</th><th>Alasan</th><th>Status</th><th></th></tr></thead><tbody>'+list.map(row).join('')+'</tbody></table></div>':emptyBox('Tidak ada pengajuan.');
+  return '<div class="wrap">'+wvsTabs()+'<div class="panel-h" style="margin:6px 0 12px"><h1 style="margin:0">Admin · Persetujuan WVS Baru</h1><button class="btn" type="button" data-adminout>Keluar admin</button></div>'+
+    '<section class="panel"><div class="panel-h"><h2>Menunggu persetujuan</h2><span class="chip num">'+pend.length+'</span></div>'+tbl(pend)+'</section>'+
+    '<section class="panel"><h2>Riwayat pengajuan</h2>'+tbl(rs.filter(r=>r.status!=='pending'))+'</section></div>';}
+async function freshSaved(id){const g=S.gen;if(!g||!g.fresh)return;const rid=g.fresh;g.fresh=null;g.freshInit=false;
+  if(rid!=='admin'){try{await store.update('requests',rid,{status:'used',verifId:id,usedAt:new Date().toISOString()});}catch(e){}}}
 function vGen(arg){
   const L=S.L;
   const w=L.wvs.find(x=>x.id===arg)||(S.gen&&L.wvs.find(x=>x.id===S.gen.wvsId))||null;
   if(w&&(!S.gen||S.gen.wvsId!==w.id))S.gen={wvsId:w.id,generated:false};
   const g=S.gen||{};
   const lastV=w?S.verifs.filter(v=>v.psNo===w.psNo).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||'').localeCompare(a.createdAt||''))[0]:null;
-  if(lastV){g.generated=true;if(!S.form||S.form.savedId!==lastV.id)S.form=formFromVerif(lastV,w);}
+  if(lastV&&g.fresh){g.generated=true;if(!g.freshInit){newForm(w.psNo);g.freshInit=true;}}
+  else if(lastV){g.generated=true;if(!S.form||S.form.savedId!==lastV.id)S.form=formFromVerif(lastV,w);}
   const sel='<section class="panel"><div class="fgrid" style="align-items:end"><label class="f" style="grid-column:span 2">WVS Sumber (Compiled GMS EMS – PS WVS)<select id="genW"><option value="">Pilih WVS…</option>'+
     L.wvs.map(x=>'<option value="'+x.id+'"'+(w&&x.id===w.id?' selected':'')+'>'+esc(x.no+' — '+psByNo(x.psNo).title)+'</option>').join('')+'</select></label>'+
-    (lastV?'<div><span class="chip good">Sudah diverifikasi '+fmtDate(lastV.date)+' · edit isian di bawah lalu Submit ulang</span></div>':'<div><button class="btn pri" type="button" data-gengo'+(w?'':' disabled')+'>Generate Checklist Verifikasi</button></div>')+'</div></section>';
+    (lastV&&g.fresh?'<div><span class="chip warn">WVS baru'+(g.fresh==='admin'?' (admin)':' (disetujui admin)')+' · isi checklist lalu Submit</span></div>':lastV?'<div>'+newWvsControls(w,lastV)+'</div>':'<div><button class="btn pri" type="button" data-gengo'+(w?'':' disabled')+'>Generate Checklist Verifikasi</button></div>')+'</div></section>';
   let body='';
   if(w&&g.generated){
     const p=psByNo(w.psNo);
@@ -1259,7 +1292,7 @@ function vAdd(){
 }
 
 /* ======================= ROUTER ======================= */
-const ROUTES=['results','result','monitor','doc','gen','form','search','add','home','gms','ems','ps','wvs','ref'];
+const ROUTES=['admin','results','result','monitor','doc','gen','form','search','add','home','gms','ems','ps','wvs','ref'];
 function parseHash(){
   let h=decodeURIComponent(location.hash.slice(1))||'home';
   if(h==='dashboard')h='home';
@@ -1274,7 +1307,7 @@ function render(){
   if(!S.L){renderNav();return;}
   let arg=S.arg;
   if(S.route==='form'&&arg){const p=S.L.ps.find(x=>x.id==='ps-'+arg);arg=p?p.no:'';}
-  const v={home:vHome,gms:vGmsList,ems:vEmsList,ps:vPsList,wvs:vWvsList,ref:vRefList,monitor:vMonitor,doc:vDoc,gen:vGen,form:vForm,results:vResults,result:vResult,search:vSearch,add:vAdd}[S.route]||vHome;
+  const v={home:vHome,gms:vGmsList,ems:vEmsList,ps:vPsList,wvs:vWvsList,ref:vRefList,monitor:vMonitor,doc:vDoc,gen:vGen,admin:vAdmin,form:vForm,results:vResults,result:vResult,search:vSearch,add:vAdd}[S.route]||vHome;
   let html=v(arg);
   if(['form','results','result'].includes(S.route))html=html.replace('<div class="wrap">','<div class="wrap">'+wvsTabs());
   $('#main').innerHTML=html;
@@ -1291,7 +1324,7 @@ window.addEventListener('hashchange',()=>{S.confirm=null;S.filt={};render();wind
 
 /* ======================= EVENTS ======================= */
 document.addEventListener('click',async e=>{
-  const t=e.target.closest('[data-submitrep],[data-repdl],[data-genreport],[data-gengo],[data-rmwev],[data-emsdl],[data-gmsdl],[data-export],[data-drill],[data-drillall],[data-hmode],[data-lf],[data-go],[data-href],[data-search],[data-searchcat],[data-stype-go],[data-startform],[data-genmode],[data-gensave],[data-genuse],[data-genai],[data-st],[data-conf],[data-tag],[data-tagall],[data-tagnone],[data-tagadd],[data-addrec],[data-rmrec],[data-tagpick],[data-tagrm],[data-tagok],[data-rmph],[data-additem],[data-rmitem],[data-rmev],[data-saveform],[data-resetform],[data-askconfirm],[data-doconfirm],[data-cancelconfirm],[data-stype],[data-scat],[data-eqall],figure[data-lb]');
+  const t=e.target.closest('[data-submitrep],[data-repdl],[data-genreport],[data-gengo],[data-rmwev],[data-emsdl],[data-gmsdl],[data-export],[data-drill],[data-drillall],[data-hmode],[data-lf],[data-go],[data-href],[data-search],[data-searchcat],[data-stype-go],[data-startform],[data-genmode],[data-gensave],[data-genuse],[data-genai],[data-st],[data-conf],[data-tag],[data-tagall],[data-tagnone],[data-tagadd],[data-addrec],[data-rmrec],[data-tagpick],[data-tagrm],[data-tagok],[data-rmph],[data-genfresh],[data-reqopen],[data-reqcancel],[data-reqsend],[data-reqdecide],[data-adminout],[data-additem],[data-rmitem],[data-rmev],[data-saveform],[data-resetform],[data-askconfirm],[data-doconfirm],[data-cancelconfirm],[data-stype],[data-scat],[data-eqall],figure[data-lb]');
   if(!t)return;const d=t.dataset;
   if(d.drill){const [dim,val,ata]=d.drill.split('|');S.drill={dim,val,ata,q:''};S.drill[dim]=val;rerenderKeep();const el=document.getElementById('drill');if(el)el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});return;}
   if(d.export!==undefined){exportExcel();return;}
@@ -1328,6 +1361,18 @@ document.addEventListener('click',async e=>{
   if(d.tagall!==undefined){const p=psByNo(S.form.psNo);const tq=S.form.tagQ.toLowerCase();p.tags.filter(t=>!tq||(t.tag+' '+t.unit+' '+(t.desc||'')).toLowerCase().includes(tq)).forEach(t=>{if(!S.form.tags.includes(t.tag))S.form.tags.push(t.tag);});rerenderKeep();return;}
   if(d.tagnone!==undefined){S.form.tags=[];rerenderKeep();return;}
   if(d.tagadd!==undefined){S.form.tagFree.split(',').map(x=>x.trim()).filter(Boolean).forEach(x=>{if(!S.form.tags.includes(x))S.form.tags.push(x);});S.form.tagFree='';rerenderKeep();return;}
+  if(d.reqopen!==undefined){S.gen.reqOpen=true;rerenderKeep('reqName');return;}
+  if(d.reqcancel!==undefined){S.gen.reqOpen=false;rerenderKeep();return;}
+  if(d.reqsend){const name=($('#reqName').value||'').trim(),reason=($('#reqReason').value||'').trim(),fungsi=($('#reqFungsi').value||'').trim();
+    if(!name||!reason){toast('Isi nama pengaju dan alasan.');return;}
+    t.disabled=true;try{await store.add('requests',{psNo:d.reqsend,wvsId:(wvsByPs(d.reqsend)||{}).id||'',name,fungsi,reason,status:'pending',createdAt:new Date().toISOString()});S.gen.reqOpen=false;toast('Pengajuan terkirim. Menunggu persetujuan admin.');}
+    catch(err){toast('Pengajuan gagal dikirim ('+(err.code||'error')+').');}refresh(true);return;}
+  if(d.genfresh){const rid=d.genfresh;if(rid!=='admin'){const r=S.requests.find(x=>x.id===rid);if(!r||r.status!=='approved'){toast('Persetujuan admin tidak ditemukan.');return;}}
+    else if(!S.admin){toast('Hanya admin.');return;}
+    S.gen.fresh=rid;S.gen.freshInit=false;S.form=null;rerenderKeep();toast('Form WVS baru siap diisi.');return;}
+  if(d.reqdecide){if(!S.admin)return;const [id,st]=d.reqdecide.split(':');t.disabled=true;
+    try{await store.update('requests',id,{status:st,decidedAt:new Date().toISOString()});toast(st==='approved'?'Pengajuan disetujui.':'Pengajuan ditolak.');}catch(err){toast('Gagal menyimpan ('+(err.code||'error')+').');}refresh(true);return;}
+  if(d.adminout!==undefined){S.admin=false;try{sessionStorage.removeItem('wvs-admin');}catch(e){}rerenderKeep();return;}
   if(d.rmph!==undefined){e.stopPropagation();S.form.photos.splice(+d.rmph,1);rerenderKeep();return;}
   if(d.tagpick){pickTag(d.tagpick);return;}
   if(d.tagok!==undefined){closeTagRes(true);const n=S.form?S.form.tags.length:0;toast(n?n+' tag number tersimpan di form.':'Belum ada tag number yang dipilih.');return;}
@@ -1350,6 +1395,10 @@ document.addEventListener('click',async e=>{
   if(t.matches('figure[data-lb]')){if((d.type||'').startsWith('image/')){const lb=$('#lightbox');lb.querySelector('img').src=d.lb;lb.hidden=false;}else if(evLabel({type:d.type,name:t.title})==='PDF'){window.open(d.lb,'_blank');}else{const a=document.createElement('a');a.href=d.lb;a.download=t.title||'evidence';document.body.appendChild(a);a.click();a.remove();}return;}
 });
 $('#lightbox').addEventListener('click',()=>$('#lightbox').hidden=true);
+document.addEventListener('submit',async e=>{if(e.target.id!=='adminForm')return;e.preventDefault();const pw=$('#adminPw').value;const er=$('#adminErr');
+  let ok=false;try{ok=await adminCheck(pw);}catch(x){}
+  if(ok){S.admin=true;try{sessionStorage.setItem('wvs-admin','1');}catch(x){}toast('Masuk sebagai admin.');rerenderKeep();}
+  else{er.textContent='Password admin salah.';er.style.display='block';$('#adminPw').select();}});
 document.addEventListener('focusin',e=>{if(e.target&&e.target.id==='tagSearch'&&e.target.value.trim().length>=2)updateTagRes();});
 document.addEventListener('mousedown',e=>{const box=document.getElementById('tagRes');if(box&&box.innerHTML&&!e.target.closest('.tagsearch'))box.innerHTML='';});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#lightbox').hidden=true;if(e.target&&(e.target.id==='tagSearch'||(e.target.dataset&&e.target.dataset.tagpick!==undefined)))closeTagRes(true);}
@@ -1499,7 +1548,7 @@ async function saveForm(opts){
     photos:(f.photos||[]).map(x=>Object.assign({},x,{cap:(x.cap||'').trim()})),totalTags:(+f.totalTags>0?Math.round(+f.totalTags):null),comments:f.comments,findings:f.findings,remarks:f.remarks,recs:f.recs.filter(r=>r.text.trim()),score:sc.score,nY:sc.y,nC:sc.c,nT:sc.t,createdAt:new Date().toISOString()};
   if(JSON.stringify(doc).length>250000){toast('Bukti foto terlalu besar untuk disimpan sekaligus. Kurangi jumlah foto.');return;}
   f.saving=true;rerenderKeep();
-  if(opts&&opts.stay){try{let id=f.savedId;if(id)await store.update('verifs',id,doc);else{id=await store.add('verifs',doc);f.savedId=id;}f.saving=false;return {id,doc};}catch(err){f.saving=false;rerenderKeep();toast(err.code==='not_granted'||err.code==='permission_denied'?'Anda tidak punya izin menyimpan. Minta akses Contributor ke pemilik aplikasi.':'Gagal menyimpan ('+(err.code||'error')+').');return null;}}
+  if(opts&&opts.stay){try{let id=f.savedId;if(id)await store.update('verifs',id,doc);else{id=await store.add('verifs',doc);f.savedId=id;await freshSaved(id);}f.saving=false;return {id,doc};}catch(err){f.saving=false;rerenderKeep();toast(err.code==='not_granted'||err.code==='permission_denied'?'Anda tidak punya izin menyimpan. Minta akses Contributor ke pemilik aplikasi.':'Gagal menyimpan ('+(err.code||'error')+').');return null;}}
   try{const id=await store.add('verifs',doc);S.form=null;S.gen=null;toast('Hasil verifikasi tersimpan.');go('wvs');}
   catch(err){f.saving=false;rerenderKeep();toast(err.code==='not_granted'||err.code==='permission_denied'?'Anda tidak punya izin menyimpan. Minta akses Contributor ke pemilik aplikasi.':'Gagal menyimpan ('+(err.code||'error')+').');}
 }
