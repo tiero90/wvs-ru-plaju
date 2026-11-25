@@ -622,12 +622,12 @@ const prioChip=p=>'<span class="chip '+(p==='Tinggi'?'bad':p==='Sedang'?'warn':'
 function stChip(s){return s==='Y'?'<span class="chip good">Ya</span>':s==='C'?'<span class="chip warn">Dengan catatan</span>':s==='T'?'<span class="chip bad">Tidak</span>':s==='N'?'<span class="chip">N/A</span>':'<span class="chip">Belum diisi</span>';}
 
 /* ======================= NAV ======================= */
-const TABS=[['home','⌂','Beranda'],['gms','▤','Generic Maintenance Strategy'],['ems','▦','Equipment Maintenance Strategy'],['ps','◎','Performance Standard'],['wvs','✓','Written Verification Scheme'],['ref','❐','Reference']];
-const WVS_SUB=[['wvs','Daftar WVS'],['gen','Input Verifikasi'],['sece','Monitoring SECE'],['admin','Admin']];
-const TAB_NAME={home:'Beranda',gms:'Generic Maintenance Strategy',ems:'Equipment Maintenance Strategy',ps:'Performance Standard',wvs:'Written Verification Scheme',ref:'Reference'};
+const TABS=[['home','⌂','Beranda'],['gms','▤','Generic Maintenance Strategy'],['ems','▦','Equipment Maintenance Strategy'],['ps','◎','Performance Standard'],['wvs','✓','Written Verification Scheme'],['sece','◉','Monitoring SECE'],['ref','❐','Reference']];
+const WVS_SUB=[['wvs','Daftar WVS'],['gen','Input Verifikasi'],['admin','Admin']];
+const TAB_NAME={home:'Beranda',gms:'Generic Maintenance Strategy',ems:'Equipment Maintenance Strategy',ps:'Performance Standard',wvs:'Written Verification Scheme',sece:'Monitoring SECE',ref:'Reference'};
 function activeTab(){
   const r=S.route;
-  if(['monitor','gen','form','results','result','admin','sece'].includes(r))return 'wvs';
+  if(['monitor','gen','form','results','result','admin'].includes(r))return 'wvs';
   if(r==='add')return 'ref';
   if(r==='doc'){const d=S.L&&docById(S.arg);if(d)return d.type==='TKO'?'ref':d.type.toLowerCase();}
   return TAB_NAME[r]?r:'';
@@ -1095,10 +1095,11 @@ function seceDonut(c){const R=54,C=2*Math.PI*R;let off=0;const parts=[['Passed',
     '<div class="sc-legend">'+parts.map(([l,n,col])=>'<div class="it"><i style="background:'+col+'"></i><span>'+l+'</span><b>'+fmtN(n)+'<small>'+(c.total?(n/c.total*100).toFixed(1):0)+'%</small></b></div>').join('')+'</div></div>';}
 function hbars(list,unit){const max=Math.max(1,...list.map(x=>x[1]));
   return '<div class="hb" role="list">'+list.map(([n,v])=>'<div class="hb-row" role="listitem" data-tip="'+esc(n)+': '+fmtN(v)+' '+unit+'"><span class="nm" title="'+esc(n)+'">'+esc(n)+'</span><div class="hb-track"><div class="hb-bar" style="width:'+(v/max*100)+'%"></div></div><span class="val">'+fmtN(v)+'</span></div>').join('')+'</div>';}
+function seceHead(){return listHead('Safety & Environmental Critical Element','Monitoring SECE','','');}
 function seceTabs(sub){return '<nav class="tabs" aria-label="Monitoring SECE" style="margin-top:-4px">'+[['','SECE Register'],['monitoring','SECE Monitoring']].map(([k,l])=>'<a href="#sece'+(k?'-'+k:'')+'" class="'+(sub===k?'on':'')+'">'+l+'</a>').join('')+'</nav>';}
 function vSece(arg){const sub=arg==='monitoring'?'monitoring':'';const rows=seceRows();
-  if(!rows){loadIH().then(()=>{if(S.route==='sece')rerenderKeep();});return '<div class="wrap">'+wvsTabs()+seceTabs(sub)+'<div class="loading">Memuat data SECE dari IH08…</div></div>';}
-  return '<div class="wrap">'+wvsTabs()+seceTabs(sub)+(sub?vSeceMon(rows):vSeceReg(rows))+'</div>';}
+  if(!rows){loadIH().then(()=>{if(S.route==='sece')rerenderKeep();});return '<div class="wrap">'+seceHead()+seceTabs(sub)+'<div class="loading">Memuat data SECE dari IH08…</div></div>';}
+  return '<div class="wrap">'+seceHead()+seceTabs(sub)+(sub?vSeceMon(rows):vSeceReg(rows))+'</div>';}
 function vSeceReg(rows){const c=seceStatusCounts(rows);
   const cnt=k=>{const m={};rows.forEach(r=>{m[r[k]]=(m[r[k]]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);};
   const byLoc=cnt('loc'),byCat=cnt('cat');
@@ -1122,7 +1123,7 @@ function vSeceMon(rows){const st=S.lf.si||'';const isA=S.admin;const nw=S.siNew|
     '<label class="f">Status<select id="siSt">'+opt(nw.status)+'</select></label><label class="f">PIC<input type="text" id="siPic"></label><label class="f">Target<input type="date" id="siTgt"></label>'+
     '<label class="f wide">Highlight Isu<textarea id="siIssue" rows="2"></textarea></label><label class="f wide">Mitigasi<textarea id="siMit" rows="2"></textarea></label><label class="f wide">Rencana Tindak Lanjut<textarea id="siPlan" rows="2"></textarea></label></div>'+
     '<div class="row" style="margin-top:8px"><button class="btn pri" type="button" data-siadd>Simpan ke tabel</button></div></section>'
-    :'<p class="note">Tabel ini diisi oleh Admin. Login di tab <a href="#admin">Admin</a> untuk menambah atau mengubah data.</p>';
+    :'<p class="note">Tabel ini diisi oleh Admin. Login di <a href="#admin">WVS › Admin</a> untuk menambah atau mengubah data.</p>';
   const cell=(x,f,ta)=>isA?(ta?'<textarea rows="2" data-si="'+esc(x.id)+':'+f+'">'+esc(x[f]||'')+'</textarea>':'<input type="'+(f==='target'?'date':'text')+'" data-si="'+esc(x.id)+':'+f+'" value="'+esc(x[f]||'')+'">'):(f==='target'?fmtDate(x[f]):'<span class="prewrap">'+esc(x[f]||'–')+'</span>');
   return addForm+'<section class="panel"><div class="panel-h">'+chipFilter('si',[['','Semua ('+S.seceIssues.length+')'],['Failed','Failed ('+nF+')'],['Overdue ITPM','Overdue ITPM ('+nO+')']])+'</div>'+
     (list.length?'<div class="tbl-wrap"><table class="si-tbl"><thead><tr><th>No</th><th>Tag Number</th><th>Deskripsi</th><th>Status</th><th>Highlight Isu</th><th>Mitigasi</th><th>Rencana Tindak Lanjut</th><th>PIC</th><th>Target</th>'+(isA?'<th></th>':'')+'</tr></thead><tbody>'+
