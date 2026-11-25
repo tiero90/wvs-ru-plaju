@@ -67,7 +67,11 @@ button,input,select,textarea{font:inherit;color:inherit}
 .hb{display:flex;flex-direction:column;gap:2px}
 .hb-row{display:grid;grid-template-columns:minmax(150px,240px) 1fr 52px;gap:10px;align-items:center;padding:3px 4px;border-radius:6px}
 .hb-row:hover{background:var(--surface2)}
-.hb-row.click{cursor:pointer}.hb-row.sel{background:var(--accent-soft)}.hb-row.sel .nm{font-weight:700}
+.hb-row.click{cursor:pointer}
+.hb.scroll{max-height:312px;overflow-y:auto;padding-right:6px;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.hb.scroll .hb-row{min-height:24px;box-sizing:border-box}
+.hb.scroll::-webkit-scrollbar{width:8px}.hb.scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+.hb-more{font-size:12.5px;color:var(--muted);margin-top:6px}.hb-row.sel{background:var(--accent-soft)}.hb-row.sel .nm{font-weight:700}
 .hb-row .nm{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hb-track{height:14px;position:relative}
 .hb-bar{height:14px;background:var(--c-sece);border-radius:0 4px 4px 0;min-width:3px}
@@ -1094,8 +1098,8 @@ function seceDonut(c){const R=54,C=2*Math.PI*R;let off=0;const parts=[['Passed',
     '<circle r="'+R+'" cx="70" cy="70" fill="none" stroke="var(--track)" stroke-width="22"/>'+segs.join('')+
     '<text x="70" y="68" text-anchor="middle" style="font-family:var(--f-serif);font-size:26px;fill:var(--ink)">'+fmtN(c.total)+'</text><text x="70" y="88" text-anchor="middle" style="font-size:11px;fill:var(--ink2)">total SECE</text></svg>'+
     '<div class="sc-legend">'+parts.map(([l,n,col])=>'<div class="it"><i style="background:'+col+'"></i><span>'+l+'</span><b>'+fmtN(n)+'<small>'+(c.total?(n/c.total*100).toFixed(1):0)+'%</small></b></div>').join('')+'</div></div>';}
-function hbars(list,unit,dim){const max=Math.max(1,...list.map(x=>x[1]));const dr=S.seceDrill||{};
-  return '<div class="hb" role="list">'+list.map(([n,v])=>'<div class="hb-row'+(dim?' click':'')+(dr.dim===dim&&dr.val===n?' sel':'')+'" role="listitem"'+(dim?' tabindex="0" data-scdrill="'+dim+'|'+esc(n)+'"':'')+' data-tip="'+esc(n)+': '+fmtN(v)+' '+unit+(dim?' · klik untuk detail':'')+'"><span class="nm" title="'+esc(n)+'">'+esc(n)+'</span><div class="hb-track"><div class="hb-bar" style="width:'+(v/max*100)+'%"></div></div><span class="val">'+fmtN(v)+'</span></div>').join('')+'</div>';}
+function hbars(list,unit,dim,top){const max=Math.max(1,...list.map(x=>x[1]));const dr=S.seceDrill||{};const sc=top&&list.length>top;
+  return '<div class="hb'+(sc?' scroll':'')+'" role="list"'+(sc?' tabindex="0" aria-label="Daftar kategori, gulir untuk melihat semua"':'')+'>'+list.map(([n,v])=>'<div class="hb-row'+(dim?' click':'')+(dr.dim===dim&&dr.val===n?' sel':'')+'" role="listitem"'+(dim?' tabindex="0" data-scdrill="'+dim+'|'+esc(n)+'"':'')+' data-tip="'+esc(n)+': '+fmtN(v)+' '+unit+(dim?' · klik untuk detail':'')+'"><span class="nm" title="'+esc(n)+'">'+esc(n)+'</span><div class="hb-track"><div class="hb-bar" style="width:'+(v/max*100)+'%"></div></div><span class="val">'+fmtN(v)+'</span></div>').join('')+'</div>';}
 function seceHead(){return listHead('Safety & Environmental Critical Element','Monitoring SECE','','');}
 function seceDrillTable(rows){const dr=S.seceDrill;if(!dr)return '';const q=(S.filt.scq||'').toLowerCase();
   const CN=Object.fromEntries(CRIT);const all=rows.filter(r=>r[dr.dim]===dr.val);const list=all.filter(r=>!q||(r.tag+' '+r.desc+' '+r.floc+' '+r.mwc).toLowerCase().includes(q));
@@ -1115,7 +1119,7 @@ function vSeceReg(rows){const c=seceStatusCounts(rows);
   return '<div class="sc-kpis">'+kpi('tot','Total SECE',c.total,'terdaftar di SAP (IH08)')+kpi('good','Passed',c.passed,(c.passed/c.total*100).toFixed(1)+'% dari total')+kpi('bad','Failed',c.failed,'lihat SECE Monitoring')+kpi('warn','Overdue ITPM',c.overdue,'lihat SECE Monitoring')+'</div>'+
     '<div class="sc-grid"><section class="panel"><h2>Status SECE</h2><p class="k-label" style="margin:-4px 0 12px">Failed dan Overdue ITPM dihitung dari tabel SECE Monitoring; sisanya dihitung Passed.</p>'+seceDonut(c)+'</section>'+
     '<section class="panel"><div class="panel-h"><h2>SECE berdasarkan Location</h2><span class="chip num">'+byLoc.length+' lokasi</span></div>'+hbars(byLoc,'SECE','loc')+'</section></div>'+
-    '<section class="panel"><div class="panel-h"><div><h2>SECE berdasarkan Equipment Category</h2><span class="k-label">Kategori disusun dari deskripsi dan Catalog Profile equipment di IH08.</span></div><span class="chip num">'+byCat.length+' kategori</span></div>'+hbars(byCat,'SECE','cat')+'</section>'+seceDrillTable(rows);}
+    '<section class="panel"><div class="panel-h"><div><h2>SECE berdasarkan Equipment Category</h2><span class="k-label">Kategori disusun dari deskripsi dan Catalog Profile equipment di IH08.</span></div><span class="chip num">'+byCat.length+' kategori</span></div>'+hbars(byCat,'SECE','cat',12)+(byCat.length>12?'<div class="hb-more">Menampilkan 12 kategori terbanyak. Gulir di dalam grafik untuk melihat '+(byCat.length-12)+' kategori lainnya.</div>':'')+'</section>'+seceDrillTable(rows);}
 function seceSearchRes(){const box=document.getElementById('siRes');const inp=document.getElementById('siQ');if(!box||!inp)return;const q=inp.value.trim().toUpperCase();S.siQ=inp.value;
   if(q.length<2){box.innerHTML='';return;}const rows=seceRows()||[];const Qn=q.replace(/[\s\-\/]/g,'');const W=q.split(/\s+/);const a=[],b=[];
   for(const r of rows){const T=r.tag.toUpperCase();const Tn=T.replace(/[\s\-\/]/g,'');if(T.startsWith(q)||Tn.startsWith(Qn))a.push(r);else if(Tn.includes(Qn)||W.every(w=>r.desc.toUpperCase().includes(w)))b.push(r);if(a.length>=20)break;}
