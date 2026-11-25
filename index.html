@@ -497,7 +497,7 @@ const GAS={
   async call(req){const u=this.url();if(!u)throw Object.assign(new Error('no_api'),{code:'no_api'});
     let r;try{r=await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({token:SITE.token},req))});}
     catch(e){throw Object.assign(new Error('offline'),{code:'offline'});}
-    let j;try{j=await r.json();}catch(e){throw Object.assign(new Error('bad_response'),{code:'bad_response'});}
+    let j;try{j=await r.json();}catch(e){throw Object.assign(new Error('bad_response'),{code:r.redirected&&/accounts\.google|ServiceLogin/.test(r.url)?'login_required':'bad_response'});}
     if(!j||!j.ok)throw Object.assign(new Error(j&&j.error||'error'),{code:j&&j.error||'error'});return j;},
   last:0,timer:null,ok:true,
   apply(docs){let ch=false;for(const d of docs||[]){if(!COLLS.includes(d.coll))continue;const before=S[d.coll].length;
@@ -506,7 +506,7 @@ const GAS={
   cache(){try{localStorage.setItem(LKEY+'-gas',JSON.stringify({last:this.last,data:Object.fromEntries(COLLS.map(c=>[c,S[c]]))}));}catch(e){}},
   async sync(full){try{const j=await this.call({op:'list',since:full?0:Math.max(0,this.last-60000)});
       if(full)COLLS.forEach(c=>S[c]=[]);const ch=this.apply(j.docs);this.last=j.now;this.ok=true;this.cache();pill();if(ch||full)refresh();return j;}
-    catch(e){this.ok=false;pill();throw e;}},
+    catch(e){this.ok=false;this.lastErr=e.code||e.message||'error';pill();throw e;}},
   start(){clearInterval(this.timer);this.timer=setInterval(()=>{if(!document.hidden)this.sync(false).catch(()=>{});},30000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)this.sync(false).catch(()=>{});});},
   files:{},
@@ -515,6 +515,13 @@ const GAS={
       const url=URL.createObjectURL(new Blob([u8],{type:j.type||'application/octet-stream'}));S.lurl['g:'+fid]=url;refresh();return url;}).catch(e=>{delete this.files[fid];throw e;});
     return this.files[fid];}
 };
+function gasErrText(c){return ({offline:'Browser tidak bisa menghubungi script.google.com. Periksa koneksi internet, atau jaringan kantor/VPN mungkin memblokir Google Apps Script.',
+  login_required:'Apps Script meminta login Google. Di Deploy → Manage deployments, set "Who has access" ke "Anyone", lalu Deploy versi baru.',
+  bad_response:'Apps Script tidak membalas data yang benar. Pastikan URL web app benar dan deployment aktif (Who has access: Anyone).',
+  unauthorized:'Password di Apps Script (baris 11, APP_PASSWORD) tidak sama dengan password website. Isi \'reliability\', Save, lalu Deploy versi baru. Kalau sudah benar, klik Keluar lalu login ulang di website.',
+  no_api:'Website belum tersambung ke Apps Script.'})[c]||('Apps Script membalas error: '+c);}
+document.addEventListener('click',e=>{if(!e.target.closest('#storePill')||store.mode!=='gas')return;if(GAS.ok){toast('Tersambung ke database Google Drive. Sinkron otomatis tiap 30 detik.');GAS.sync(false).catch(()=>{});return;}
+  toast('Sinkron gagal: '+gasErrText(GAS.lastErr)+' Mencoba lagi…',15000);GAS.sync(false).then(()=>toast('Tersambung kembali.')).catch(()=>{});});
 const blobToB64=b=>new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]||'');fr.onerror=()=>rej(fr.error);fr.readAsDataURL(b);});
 const store={mode:'connecting',db:null,
   async init(){
@@ -537,7 +544,7 @@ const store={mode:'connecting',db:null,
       try{await GAS.sync(true);
         if(!COLLS.some(c=>S[c].length)){try{const sd=await getJSON('data/seed.json');const docs=[];COLLS.forEach(c=>(sd[c]||[]).forEach(d=>{const x=Object.assign({},d);delete x.id;docs.push({coll:c,id:d.id,data:x});}));
           if(docs.length){await GAS.call({op:'bulk',docs});await GAS.sync(true);}}catch(e){}}
-      }catch(e){toast('Database Google Drive belum bisa dijangkau ('+(e.code||'error')+'). Menampilkan data terakhir yang tersimpan di browser ini.',8000);}
+      }catch(e){toast('Database Google Drive belum bisa dijangkau: '+gasErrText(e.code||e.message)+' Klik label status di kanan atas untuk mencoba lagi.',15000);}
       GAS.start();
     } else {
       this.mode='local';
@@ -576,7 +583,7 @@ const store={mode:'connecting',db:null,
 function pill(){
   const p=document.getElementById('storePill');
   p.className='pill '+store.mode;
-  if(store.mode==='gas')p.className='pill '+(GAS.ok?'db':'local');
+  if(store.mode==='gas'){p.className='pill '+(GAS.ok?'db':'local');p.style.cursor='pointer';p.title=GAS.ok?'Klik untuk sinkron sekarang':'Klik untuk melihat penyebab dan mencoba lagi';}
   p.querySelector('span').textContent=store.mode==='db'?'Data tersimpan bersama':store.mode==='gas'?(GAS.ok?'Data bersama (Google Drive)':'Offline – menunggu sinkron'):store.mode==='local'?'Mode lokal (browser ini)':'Menghubungkan…';
 }
 
