@@ -1084,7 +1084,7 @@ const SECE_RULES=[['Fire Hydrant',/HYDRANT/,null],['Fire Truck',/FIRE TRUCK/,nul
  ['Oil Catcher / CPI',null,['61']],['Fire Fighting Equipment (lainnya)',null,['53']]];
 function seceCat(desc,cp){const d=String(desc||'').toUpperCase();cp=String(cp||'');
   for(const [n,rx,pre] of SECE_RULES){if(rx&&rx.test(d))return n;if(pre&&!rx&&pre.some(p=>cp.startsWith(p)))return n;if(pre&&rx&&pre.includes(cp))return n;}return 'Lainnya';}
-function seceRows(){if(!S.IH)return null;if(!S.SECE)S.SECE=S.IH.filter(r=>r[3]==='SECE').map(r=>({tag:r[0],desc:r[1],loc:r[5]||'–',cat:seceCat(r[1],r[6]),crit:r[2],cp:r[6]||'',floc:r[7]||'',manuf:r[8]||'',mwc:r[9]||''}));return S.SECE;}
+function seceRows(){if(!S.IH)return null;if(!S.SECE)S.SECE=S.IH.filter(r=>r[3]==='SECE').map(r=>({tag:r[0],desc:r[1],loc:(r[5]==='LKKK'?'HSSE':r[5])||'–',cat:seceCat(r[1],r[6]),crit:r[2],cp:r[6]||'',floc:r[7]||'',manuf:r[8]||'',mwc:r[9]||''}));return S.SECE;}
 function seceStatusCounts(rows){const tags=new Set(rows.map(r=>String(r.tag).toUpperCase()));const f=new Set(),o=new Set();
   S.seceIssues.forEach(x=>{const t=String(x.tag||'').toUpperCase();if(!tags.has(t))return;if(x.status==='Failed')f.add(t);else if(x.status==='Overdue ITPM')o.add(t);});
   o.forEach(t=>{if(f.has(t))o.delete(t);});return {total:rows.length,failed:f.size,overdue:o.size,passed:rows.length-f.size-o.size};}
