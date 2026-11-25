@@ -56,6 +56,29 @@ a{color:var(--link)}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .mono{font-family:var(--f-mono);font-size:.88em}
+.sc-grid{display:grid;grid-template-columns:minmax(280px,1fr) 2fr;gap:18px}
+@media (max-width:900px){.sc-grid{grid-template-columns:1fr}}
+.sc-donut{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.sc-legend{display:flex;flex-direction:column;gap:10px;min-width:180px}
+.sc-legend .it{display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:center;font-size:14px}
+.sc-legend .it i{width:12px;height:12px;border-radius:3px;display:block}
+.sc-legend .it b{font-variant-numeric:tabular-nums}
+.sc-legend .it small{color:var(--muted);font-size:12px;margin-left:6px;font-weight:400}
+.hb{display:flex;flex-direction:column;gap:2px}
+.hb-row{display:grid;grid-template-columns:minmax(150px,240px) 1fr 52px;gap:10px;align-items:center;padding:3px 4px;border-radius:6px}
+.hb-row:hover{background:var(--surface2)}
+.hb-row .nm{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-track{height:14px;position:relative}
+.hb-bar{height:14px;background:var(--c-sece);border-radius:0 4px 4px 0;min-width:3px}
+.hb-row .val{font-size:13px;color:var(--ink2);text-align:right;font-variant-numeric:tabular-nums}
+.sc-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+@media (max-width:720px){.sc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.sc-kpi{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--surface);border-left:5px solid var(--line)}
+.sc-kpi .k-label{display:block}.sc-kpi .v{font-family:var(--f-serif);font-size:28px;line-height:1.1;color:var(--ink)}
+.sc-kpi.good{border-left-color:var(--good)}.sc-kpi.bad{border-left-color:var(--bad)}.sc-kpi.warn{border-left-color:var(--warn)}.sc-kpi.tot{border-left-color:var(--accent)}
+.si-tbl td{vertical-align:top}.si-tbl textarea,.si-tbl input,.si-tbl select{font-size:13px;width:100%;box-sizing:border-box;min-width:120px}
+.si-tbl textarea{min-width:180px}
+.si-tbl input[data-si$=":pic"]{min-width:130px!important;width:130px}.si-tbl input[type=date]{min-width:150px!important}
 .tagsel{display:flex;flex-direction:column;gap:8px}
 .tagchips{display:flex;flex-wrap:wrap;gap:6px}
 .tchip{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border-radius:8px;background:var(--accent-soft);border:1px solid var(--line);font-size:12.5px;max-width:100%}
@@ -453,9 +476,9 @@ mark{background:var(--warn-soft);color:var(--ink)}
 /* ======================= STATE ======================= */
 const SITE=window.WVS_SITE||null;
 function getJSON(p){return SITE?SITE.load(p):fetch(p).then(r=>{if(!r.ok)throw new Error(r.status);return r.json();});}
-const S={L:null,EQ:null,docs:[],checklists:[],verifs:[],wvsStatus:[],wvsEvidence:[],requests:[],route:'dashboard',arg:'',q:'',form:null,gen:null,openNav:new Set(['sec-chk']),
+const S={L:null,EQ:null,docs:[],checklists:[],verifs:[],wvsStatus:[],wvsEvidence:[],requests:[],seceIssues:[],route:'dashboard',arg:'',q:'',form:null,gen:null,openNav:new Set(['sec-chk']),
   assets:null,sample:null,loaded:{},confirm:null,resFilter:{ps:'',q:''},searchType:'',searchCat:'',filt:{},drill:{},lf:{},hmode:'abs',IH:null};
-const COLLS=['docs','checklists','verifs','wvsStatus','wvsEvidence','requests'];
+const COLLS=['docs','checklists','verifs','wvsStatus','wvsEvidence','requests','seceIssues'];
 const LKEY='wvs-plaju-local-v2';
 const TYPES={GMS:'Generic Maintenance Strategy',EMS:'Equipment Maintenance Strategy',PS:'Performance Standard',WVS:'Written Verification Scheme',TKO:'TKO / TKI / Pedoman'};
 const ASPECT={F:'Functionality',A:'Availability',R:'Reliability',S:'Survivability',I:'Interdependence'};
@@ -600,11 +623,11 @@ function stChip(s){return s==='Y'?'<span class="chip good">Ya</span>':s==='C'?'<
 
 /* ======================= NAV ======================= */
 const TABS=[['home','⌂','Beranda'],['gms','▤','Generic Maintenance Strategy'],['ems','▦','Equipment Maintenance Strategy'],['ps','◎','Performance Standard'],['wvs','✓','Written Verification Scheme'],['ref','❐','Reference']];
-const WVS_SUB=[['wvs','Daftar WVS'],['gen','Input Verifikasi'],['admin','Admin']];
+const WVS_SUB=[['wvs','Daftar WVS'],['gen','Input Verifikasi'],['sece','Monitoring SECE'],['admin','Admin']];
 const TAB_NAME={home:'Beranda',gms:'Generic Maintenance Strategy',ems:'Equipment Maintenance Strategy',ps:'Performance Standard',wvs:'Written Verification Scheme',ref:'Reference'};
 function activeTab(){
   const r=S.route;
-  if(['monitor','gen','form','results','result','admin'].includes(r))return 'wvs';
+  if(['monitor','gen','form','results','result','admin','sece'].includes(r))return 'wvs';
   if(r==='add')return 'ref';
   if(r==='doc'){const d=S.L&&docById(S.arg);if(d)return d.type==='TKO'?'ref':d.type.toLowerCase();}
   return TAB_NAME[r]?r:'';
@@ -1047,6 +1070,65 @@ function formFromVerif(v,w){
     answers,confirm:Object.assign({},v.confirm||{}),comments:v.comments||'',findings:v.findings||'',remarks:v.remarks||'',recs:(v.recs||[]).map(r=>Object.assign({status:'Open'},r)),photos:(v.photos||[]).map(x=>Object.assign({},x)),saving:false,uploading:0,savedId:v.id};
 }
 
+
+/* ======================= MONITORING SECE ======================= */
+const SECE_RULES=[['Fire Hydrant',/HYDRANT/,null],['Fire Truck',/FIRE TRUCK|FIRE SAFETY CAR|AMBULANCE/,['5301']],['Foam System',/FOAM/,['5302']],['Fire Monitor',/MONITOR/,['5306']],
+ ['Water Spray / Deluge / Sprinkler',/COOLING|SPRINKLER|DELUGE|WATER SPRAY|FIXED WATER|WATER CURTAIN/,['7404']],['Fire Pump',/FIRE PUMP|POMPA PEMADAM|JOCKEY|JOKEY|FIRE WATER PUMP/,null],
+ ['Flame / Fire Detector',/FLAME|FIRE DETEC|FIRE DET|UV FIRE|U\.V/,null],['Gas Detector',/GAS DET|GAS DETEC|COMBUSTIBLE GAS|TOXIC GAS|GAS DETECTION|OPEN PATH/,['7405','7403']],
+ ['Fire & Gas Panel / System',/FIRE & GAS|FIRE GAS|FIRE ALARM|FIRE PROTECTION/,['7401','7499']],['Pressure Safety Valve',null,['3601','3602','3603']],
+ ['Emergency Isolation / Shutdown Valve',/EMERGENCY ISOLATION|ESD/,['3699','7302','7303','7604']],['Control Valve',null,['7301']],['Instrument (Transmitter/Switch)',null,['66','67','76','71']],
+ ['DCS / PLC',null,['72']],['Tank Gauging (ATG)',null,['7705']],['Piping',null,['40']],['Pump',null,['18']],['Compressor / Turbine / Engine',null,['16','19','17']],['Pressure Vessel / Column',null,['03','04']],
+ ['Storage Tank',null,['01']],['Heat Exchanger',null,['02']],['Fired Heater / Furnace',null,['07','0902']],['Electric Motor',null,['92']],['Switchgear / MCC / Panel',null,['90','91','94','86']],
+ ['UPS / DC Power',null,['93']],['Generator',null,['87']],['Grounding / Substation / Building',null,['56']],['Lifting Equipment / Heavy Equipment',null,['46','47']],['HVAC',null,['82']],
+ ['Oil Catcher / CPI',null,['61']],['Fire Fighting Equipment (lainnya)',null,['53']]];
+function seceCat(desc,cp){const d=String(desc||'').toUpperCase();cp=String(cp||'');
+  for(const [n,rx,pre] of SECE_RULES){if(rx&&rx.test(d))return n;if(pre&&!rx&&pre.some(p=>cp.startsWith(p)))return n;if(pre&&rx&&pre.includes(cp))return n;}return 'Lainnya';}
+function seceRows(){if(!S.IH)return null;if(!S.SECE)S.SECE=S.IH.filter(r=>r[3]==='SECE').map(r=>({tag:r[0],desc:r[1],loc:r[5]||'–',cat:seceCat(r[1],r[6]),crit:r[2]}));return S.SECE;}
+function seceStatusCounts(rows){const tags=new Set(rows.map(r=>String(r.tag).toUpperCase()));const f=new Set(),o=new Set();
+  S.seceIssues.forEach(x=>{const t=String(x.tag||'').toUpperCase();if(!tags.has(t))return;if(x.status==='Failed')f.add(t);else if(x.status==='Overdue ITPM')o.add(t);});
+  o.forEach(t=>{if(f.has(t))o.delete(t);});return {total:rows.length,failed:f.size,overdue:o.size,passed:rows.length-f.size-o.size};}
+function seceDonut(c){const R=54,C=2*Math.PI*R;let off=0;const parts=[['Passed',c.passed,'var(--good)'],['Failed',c.failed,'var(--bad)'],['Overdue ITPM',c.overdue,'var(--warn)']];
+  const segs=parts.filter(p=>p[1]>0).map(([l,n,col])=>{const len=n/c.total*C;const gap=c.total>n?2:0;const seg='<circle r="'+R+'" cx="70" cy="70" fill="none" stroke="'+col+'" stroke-width="22" stroke-dasharray="'+Math.max(len-gap,0.5)+' '+(C-Math.max(len-gap,0.5))+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 70 70)" data-tip="'+l+': '+fmtN(n)+' dari '+fmtN(c.total)+' SECE ('+(n/c.total*100).toFixed(1)+'%)"></circle>';off+=len;return seg;});
+  return '<div class="sc-donut"><svg viewBox="0 0 140 140" width="200" height="200" role="img" aria-label="Status SECE: Passed '+c.passed+', Failed '+c.failed+', Overdue ITPM '+c.overdue+' dari '+c.total+'">'+
+    '<circle r="'+R+'" cx="70" cy="70" fill="none" stroke="var(--track)" stroke-width="22"/>'+segs.join('')+
+    '<text x="70" y="68" text-anchor="middle" style="font-family:var(--f-serif);font-size:26px;fill:var(--ink)">'+fmtN(c.total)+'</text><text x="70" y="88" text-anchor="middle" style="font-size:11px;fill:var(--ink2)">total SECE</text></svg>'+
+    '<div class="sc-legend">'+parts.map(([l,n,col])=>'<div class="it"><i style="background:'+col+'"></i><span>'+l+'</span><b>'+fmtN(n)+'<small>'+(c.total?(n/c.total*100).toFixed(1):0)+'%</small></b></div>').join('')+'</div></div>';}
+function hbars(list,unit){const max=Math.max(1,...list.map(x=>x[1]));
+  return '<div class="hb" role="list">'+list.map(([n,v])=>'<div class="hb-row" role="listitem" data-tip="'+esc(n)+': '+fmtN(v)+' '+unit+'"><span class="nm" title="'+esc(n)+'">'+esc(n)+'</span><div class="hb-track"><div class="hb-bar" style="width:'+(v/max*100)+'%"></div></div><span class="val">'+fmtN(v)+'</span></div>').join('')+'</div>';}
+function seceTabs(sub){return '<nav class="tabs" aria-label="Monitoring SECE" style="margin-top:-4px">'+[['','SECE Register'],['monitoring','SECE Monitoring']].map(([k,l])=>'<a href="#sece'+(k?'-'+k:'')+'" class="'+(sub===k?'on':'')+'">'+l+'</a>').join('')+'</nav>';}
+function vSece(arg){const sub=arg==='monitoring'?'monitoring':'';const rows=seceRows();
+  if(!rows){loadIH().then(()=>{if(S.route==='sece')rerenderKeep();});return '<div class="wrap">'+wvsTabs()+seceTabs(sub)+'<div class="loading">Memuat data SECE dari IH08…</div></div>';}
+  return '<div class="wrap">'+wvsTabs()+seceTabs(sub)+(sub?vSeceMon(rows):vSeceReg(rows))+'</div>';}
+function vSeceReg(rows){const c=seceStatusCounts(rows);
+  const cnt=k=>{const m={};rows.forEach(r=>{m[r[k]]=(m[r[k]]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);};
+  const byLoc=cnt('loc'),byCat=cnt('cat');
+  const kpi=(cls,l,v,sub)=>'<div class="sc-kpi '+cls+'"><span class="k-label">'+l+'</span><span class="v">'+fmtN(v)+'</span><span class="k-label">'+sub+'</span></div>';
+  return '<div class="sc-kpis">'+kpi('tot','Total SECE',c.total,'terdaftar di SAP (IH08)')+kpi('good','Passed',c.passed,(c.passed/c.total*100).toFixed(1)+'% dari total')+kpi('bad','Failed',c.failed,'lihat SECE Monitoring')+kpi('warn','Overdue ITPM',c.overdue,'lihat SECE Monitoring')+'</div>'+
+    '<div class="sc-grid"><section class="panel"><h2>Status SECE</h2><p class="k-label" style="margin:-4px 0 12px">Failed dan Overdue ITPM dihitung dari tabel SECE Monitoring; sisanya dihitung Passed.</p>'+seceDonut(c)+'</section>'+
+    '<section class="panel"><div class="panel-h"><h2>SECE berdasarkan Location</h2><span class="chip num">'+byLoc.length+' lokasi</span></div>'+hbars(byLoc,'SECE')+'</section></div>'+
+    '<section class="panel"><div class="panel-h"><div><h2>SECE berdasarkan Equipment Category</h2><span class="k-label">Kategori disusun dari deskripsi dan Catalog Profile equipment di IH08.</span></div><span class="chip num">'+byCat.length+' kategori</span></div>'+hbars(byCat,'SECE')+'</section>';}
+function seceSearchRes(){const box=document.getElementById('siRes');const inp=document.getElementById('siQ');if(!box||!inp)return;const q=inp.value.trim().toUpperCase();S.siQ=inp.value;
+  if(q.length<2){box.innerHTML='';return;}const rows=seceRows()||[];const Qn=q.replace(/[\s\-\/]/g,'');const W=q.split(/\s+/);const a=[],b=[];
+  for(const r of rows){const T=r.tag.toUpperCase();const Tn=T.replace(/[\s\-\/]/g,'');if(T.startsWith(q)||Tn.startsWith(Qn))a.push(r);else if(Tn.includes(Qn)||W.every(w=>r.desc.toUpperCase().includes(w)))b.push(r);if(a.length>=20)break;}
+  const m=a.concat(b).slice(0,20);
+  box.innerHTML=m.length?m.map(r=>'<button type="button" data-sipick="'+esc(r.tag)+'"><b>'+esc(r.tag)+'</b><span>'+esc(r.desc)+'</span><em>'+esc(r.loc+' · '+r.cat)+'</em></button>').join(''):'<div class="tnote">Tag number SECE tidak ditemukan di IH08.</div>';}
+function vSeceMon(rows){const st=S.lf.si||'';const isA=S.admin;const nw=S.siNew||(S.siNew={tag:'',desc:'',status:'Failed'});
+  const list=S.seceIssues.slice().filter(x=>!st||x.status===st).sort((a,b)=>(a.status||'').localeCompare(b.status||'')||(a.tag||'').localeCompare(b.tag||''));
+  const nF=S.seceIssues.filter(x=>x.status==='Failed').length,nO=S.seceIssues.filter(x=>x.status==='Overdue ITPM').length;
+  const opt=v=>['Failed','Overdue ITPM'].map(o=>'<option'+(o===v?' selected':'')+'>'+o+'</option>').join('');
+  const stChipS=v=>'<span class="chip '+(v==='Failed'?'bad':'warn')+'">'+esc(v||'–')+'</span>';
+  const addForm=isA?'<section class="panel"><h2>Tambah SECE Failed / Overdue ITPM</h2>'+
+    '<div class="fgrid"><div class="f wide"><span>Tag Number (cari dari IH08 SAP)</span><div class="tagsearch">'+(nw.tag?'<div class="tagchips" style="margin-bottom:6px"><span class="tchip"><b>'+esc(nw.tag)+'</b><span>'+esc(nw.desc)+'</span><button type="button" data-siclear aria-label="Ganti tag">✕</button></span></div>':'<input type="search" id="siQ" autocomplete="off" value="'+esc(S.siQ||'')+'" placeholder="Cari tag SECE, mis. 045-RPA2 atau fire hydrant" aria-label="Cari tag number SECE"><div class="tagres" id="siRes"></div>')+'</div></div>'+
+    '<label class="f">Status<select id="siSt">'+opt(nw.status)+'</select></label><label class="f">PIC<input type="text" id="siPic"></label><label class="f">Target<input type="date" id="siTgt"></label>'+
+    '<label class="f wide">Highlight Isu<textarea id="siIssue" rows="2"></textarea></label><label class="f wide">Mitigasi<textarea id="siMit" rows="2"></textarea></label><label class="f wide">Rencana Tindak Lanjut<textarea id="siPlan" rows="2"></textarea></label></div>'+
+    '<div class="row" style="margin-top:8px"><button class="btn pri" type="button" data-siadd>Simpan ke tabel</button></div></section>'
+    :'<p class="note">Tabel ini diisi oleh Admin. Login di tab <a href="#admin">Admin</a> untuk menambah atau mengubah data.</p>';
+  const cell=(x,f,ta)=>isA?(ta?'<textarea rows="2" data-si="'+esc(x.id)+':'+f+'">'+esc(x[f]||'')+'</textarea>':'<input type="'+(f==='target'?'date':'text')+'" data-si="'+esc(x.id)+':'+f+'" value="'+esc(x[f]||'')+'">'):(f==='target'?fmtDate(x[f]):'<span class="prewrap">'+esc(x[f]||'–')+'</span>');
+  return addForm+'<section class="panel"><div class="panel-h">'+chipFilter('si',[['','Semua ('+S.seceIssues.length+')'],['Failed','Failed ('+nF+')'],['Overdue ITPM','Overdue ITPM ('+nO+')']])+'</div>'+
+    (list.length?'<div class="tbl-wrap"><table class="si-tbl"><thead><tr><th>No</th><th>Tag Number</th><th>Deskripsi</th><th>Status</th><th>Highlight Isu</th><th>Mitigasi</th><th>Rencana Tindak Lanjut</th><th>PIC</th><th>Target</th>'+(isA?'<th></th>':'')+'</tr></thead><tbody>'+
+      list.map((x,i)=>'<tr><td class="n">'+(i+1)+'</td><td class="mono" style="white-space:nowrap">'+esc(x.tag)+'</td><td style="min-width:160px">'+esc(x.desc||'')+'<div class="k-label">'+esc([x.loc,x.cat].filter(Boolean).join(' · '))+'</div></td>'+
+        '<td>'+(isA?'<select data-si="'+esc(x.id)+':status" style="min-width:130px">'+opt(x.status)+'</select>':stChipS(x.status))+'</td><td>'+cell(x,'issue',1)+'</td><td>'+cell(x,'mitigation',1)+'</td><td>'+cell(x,'plan',1)+'</td><td>'+cell(x,'pic')+'</td><td>'+cell(x,'target')+'</td>'+
+        (isA?'<td><button class="btn sm danger" type="button" data-sidel="'+esc(x.id)+'">Hapus</button></td>':'')+'</tr>').join('')+'</tbody></table></div>':emptyBox('Belum ada SECE Failed / Overdue ITPM yang dicatat.'))+'</section>';}
 /* ======================= ADMIN APPROVAL ======================= */
 const ADMIN_HASH='283c7e641ac734af06bbe2a7336d1f72a344978cc9f1f4b02fdfb2b8c17e56f1';
 S.admin=(()=>{try{return sessionStorage.getItem('wvs-admin')==='1';}catch(e){return false;}})();
@@ -1305,7 +1387,7 @@ function vAdd(){
 }
 
 /* ======================= ROUTER ======================= */
-const ROUTES=['admin','results','result','monitor','doc','gen','form','search','add','home','gms','ems','ps','wvs','ref'];
+const ROUTES=['admin','sece','results','result','monitor','doc','gen','form','search','add','home','gms','ems','ps','wvs','ref'];
 function parseHash(){
   let h=decodeURIComponent(location.hash.slice(1))||'home';
   if(h==='dashboard')h='home';
@@ -1320,7 +1402,7 @@ function render(){
   if(!S.L){renderNav();return;}
   let arg=S.arg;
   if(S.route==='form'&&arg){const p=S.L.ps.find(x=>x.id==='ps-'+arg);arg=p?p.no:'';}
-  const v={home:vHome,gms:vGmsList,ems:vEmsList,ps:vPsList,wvs:vWvsList,ref:vRefList,monitor:vMonitor,doc:vDoc,gen:vGen,admin:vAdmin,form:vForm,results:vResults,result:vResult,search:vSearch,add:vAdd}[S.route]||vHome;
+  const v={home:vHome,gms:vGmsList,ems:vEmsList,ps:vPsList,wvs:vWvsList,ref:vRefList,monitor:vMonitor,doc:vDoc,gen:vGen,admin:vAdmin,sece:vSece,form:vForm,results:vResults,result:vResult,search:vSearch,add:vAdd}[S.route]||vHome;
   let html=v(arg);
   if(['form','results','result'].includes(S.route))html=html.replace('<div class="wrap">','<div class="wrap">'+wvsTabs());
   $('#main').innerHTML=html;
@@ -1337,7 +1419,7 @@ window.addEventListener('hashchange',()=>{S.confirm=null;S.filt={};render();wind
 
 /* ======================= EVENTS ======================= */
 document.addEventListener('click',async e=>{
-  const t=e.target.closest('[data-submitrep],[data-repdl],[data-genreport],[data-gengo],[data-rmwev],[data-emsdl],[data-gmsdl],[data-export],[data-drill],[data-drillall],[data-hmode],[data-lf],[data-go],[data-href],[data-search],[data-searchcat],[data-stype-go],[data-startform],[data-genmode],[data-gensave],[data-genuse],[data-genai],[data-st],[data-conf],[data-tag],[data-tagall],[data-tagnone],[data-tagadd],[data-addrec],[data-rmrec],[data-tagpick],[data-tagrm],[data-tagok],[data-rmph],[data-openref],[data-genfresh],[data-reqopen],[data-reqcancel],[data-reqsend],[data-reqdecide],[data-adminout],[data-additem],[data-rmitem],[data-rmev],[data-saveform],[data-resetform],[data-askconfirm],[data-doconfirm],[data-cancelconfirm],[data-stype],[data-scat],[data-eqall],figure[data-lb]');
+  const t=e.target.closest('[data-submitrep],[data-repdl],[data-genreport],[data-gengo],[data-rmwev],[data-emsdl],[data-gmsdl],[data-export],[data-drill],[data-drillall],[data-hmode],[data-lf],[data-go],[data-href],[data-search],[data-searchcat],[data-stype-go],[data-startform],[data-genmode],[data-gensave],[data-genuse],[data-genai],[data-st],[data-conf],[data-tag],[data-tagall],[data-tagnone],[data-tagadd],[data-addrec],[data-rmrec],[data-tagpick],[data-tagrm],[data-tagok],[data-rmph],[data-openref],[data-genfresh],[data-sipick],[data-siclear],[data-siadd],[data-sidel],[data-reqopen],[data-reqcancel],[data-reqsend],[data-reqdecide],[data-adminout],[data-additem],[data-rmitem],[data-rmev],[data-saveform],[data-resetform],[data-askconfirm],[data-doconfirm],[data-cancelconfirm],[data-stype],[data-scat],[data-eqall],figure[data-lb]');
   if(!t)return;const d=t.dataset;
   if(d.drill){const [dim,val,ata]=d.drill.split('|');S.drill={dim,val,ata,q:''};S.drill[dim]=val;rerenderKeep();const el=document.getElementById('drill');if(el)el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});return;}
   if(d.export!==undefined){exportExcel();return;}
@@ -1374,6 +1456,12 @@ document.addEventListener('click',async e=>{
   if(d.tagall!==undefined){const p=psByNo(S.form.psNo);const tq=S.form.tagQ.toLowerCase();p.tags.filter(t=>!tq||(t.tag+' '+t.unit+' '+(t.desc||'')).toLowerCase().includes(tq)).forEach(t=>{if(!S.form.tags.includes(t.tag))S.form.tags.push(t.tag);});rerenderKeep();return;}
   if(d.tagnone!==undefined){S.form.tags=[];rerenderKeep();return;}
   if(d.tagadd!==undefined){S.form.tagFree.split(',').map(x=>x.trim()).filter(Boolean).forEach(x=>{if(!S.form.tags.includes(x))S.form.tags.push(x);});S.form.tagFree='';rerenderKeep();return;}
+  if(d.sipick){const r=(seceRows()||[]).find(x=>x.tag===d.sipick);if(r){S.siNew=Object.assign(S.siNew||{},{tag:r.tag,desc:r.desc,loc:r.loc,cat:r.cat});S.siQ='';}rerenderKeep();return;}
+  if(d.siclear!==undefined){S.siNew.tag='';S.siNew.desc='';rerenderKeep('siQ');return;}
+  if(d.siadd!==undefined){if(!S.admin)return;const n=S.siNew||{};if(!n.tag){toast('Pilih tag number SECE dari IH08.');return;}
+    const doc={tag:n.tag,desc:n.desc,loc:n.loc||'',cat:n.cat||'',status:$('#siSt').value,issue:$('#siIssue').value.trim(),mitigation:$('#siMit').value.trim(),plan:$('#siPlan').value.trim(),pic:$('#siPic').value.trim(),target:$('#siTgt').value,updatedAt:new Date().toISOString()};
+    t.disabled=true;try{await store.add('seceIssues',doc);S.siNew={tag:'',desc:'',status:doc.status};toast('Data SECE tersimpan.');}catch(err){toast('Gagal menyimpan ('+(err.code||'error')+').');}refresh(true);return;}
+  if(d.sidel){if(!S.admin)return;if(!confirm('Hapus baris SECE ini dari tabel?'))return;try{await store.del('seceIssues',d.sidel);toast('Baris dihapus.');}catch(err){toast('Gagal menghapus ('+(err.code||'error')+').');}refresh(true);return;}
   if(d.reqopen!==undefined){S.gen.reqOpen=true;rerenderKeep('reqName');return;}
   if(d.reqcancel!==undefined){S.gen.reqOpen=false;rerenderKeep();return;}
   if(d.reqsend){const name=($('#reqName').value||'').trim(),reason=($('#reqReason').value||'').trim(),fungsi=($('#reqFungsi').value||'').trim();
@@ -1435,6 +1523,8 @@ document.addEventListener('input',e=>{
   const map={fVer:'verifiers',fUnit:'unitArea',fTotal:'totalTags',fCom:'comments',fFind:'findings',fRem:'remarks',tagFree:'tagFree'};
   if(map[t.id]){S.form[map[t.id]]=t.value;return;}
   if(t.id==='dQ'){S.drill.q=t.value;S.drill.all=false;clearTimeout(ftimer);ftimer=setTimeout(()=>rerenderKeep('dQ'),300);return;}
+  if(t.id==='siQ'){clearTimeout(S._siT);S._siT=setTimeout(seceSearchRes,120);return;}
+  if(t.id==='siSt'&&S.siNew){S.siNew.status=t.value;return;}
   if(t.id==='tagSearch'){clearTimeout(S._tsT);S._tsT=setTimeout(updateTagRes,120);return;}
   if(t.id==='fTags'){S.form.tagsRaw=t.value;S.form.tags=[...new Set(t.value.split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean))];const k=t.parentElement.querySelector('.k-label');if(k)k.textContent=S.form.tags.length+' tag';return;}
   if(t.id==='tagQ'){S.form.tagQ=t.value;clearTimeout(ftimer);ftimer=setTimeout(()=>rerenderKeep('tagQ'),250);return;}
@@ -1442,6 +1532,7 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',async e=>{
   const t=e.target;const d=t.dataset;
+  if(d.si){if(!S.admin)return;const [id,fld]=d.si.split(':');try{await store.update('seceIssues',id,{[fld]:t.value.trim?t.value.trim():t.value,updatedAt:new Date().toISOString()});toast('Perubahan tersimpan.');}catch(err){toast('Gagal menyimpan ('+(err.code||'error')+').');}if(fld==='status')refresh(true);return;}
   if(d.wvscap){const [key,i]=d.wvscap.split('|');const cur=S.wvsEvidence.find(x=>x.id===key);if(!cur||!(cur.ev||[])[+i])return;
     const ev=cur.ev.map((x,k)=>k===+i?Object.assign({},x,{cap:t.value.trim()}):x);
     try{await store.setDoc('wvsEvidence',key,{wvsId:cur.wvsId||'',no:cur.no||'',ev,hasil:cur.hasil||'',updatedAt:new Date().toISOString()});toast('Keterangan evidence tersimpan.');}catch(err){toast('Keterangan gagal disimpan ('+(err.code||'error')+').');}
