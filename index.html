@@ -67,6 +67,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .hb{display:flex;flex-direction:column;gap:2px}
 .hb-row{display:grid;grid-template-columns:minmax(150px,240px) 1fr 52px;gap:10px;align-items:center;padding:3px 4px;border-radius:6px}
 .hb-row:hover{background:var(--surface2)}
+.hb-row.click{cursor:pointer}.hb-row.sel{background:var(--accent-soft)}.hb-row.sel .nm{font-weight:700}
 .hb-row .nm{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hb-track{height:14px;position:relative}
 .hb-bar{height:14px;background:var(--c-sece);border-radius:0 4px 4px 0;min-width:3px}
@@ -1072,7 +1073,7 @@ function formFromVerif(v,w){
 
 
 /* ======================= MONITORING SECE ======================= */
-const SECE_RULES=[['Fire Hydrant',/HYDRANT/,null],['Fire Truck',/FIRE TRUCK|FIRE SAFETY CAR|AMBULANCE/,['5301']],['Foam System',/FOAM/,['5302']],['Fire Monitor',/MONITOR/,['5306']],
+const SECE_RULES=[['Fire Hydrant',/HYDRANT/,null],['Fire Truck',/FIRE TRUCK/,null],['Foam System',/FOAM/,['5302']],['Fire Monitor',/MONITOR/,['5306']],
  ['Water Spray / Deluge / Sprinkler',/COOLING|SPRINKLER|DELUGE|WATER SPRAY|FIXED WATER|WATER CURTAIN/,['7404']],['Fire Pump',/FIRE PUMP|POMPA PEMADAM|JOCKEY|JOKEY|FIRE WATER PUMP/,null],
  ['Flame / Fire Detector',/FLAME|FIRE DETEC|FIRE DET|UV FIRE|U\.V/,null],['Gas Detector',/GAS DET|GAS DETEC|COMBUSTIBLE GAS|TOXIC GAS|GAS DETECTION|OPEN PATH/,['7405','7403']],
  ['Fire & Gas Panel / System',/FIRE & GAS|FIRE GAS|FIRE ALARM|FIRE PROTECTION/,['7401','7499']],['Pressure Safety Valve',null,['3601','3602','3603']],
@@ -1083,7 +1084,7 @@ const SECE_RULES=[['Fire Hydrant',/HYDRANT/,null],['Fire Truck',/FIRE TRUCK|FIRE
  ['Oil Catcher / CPI',null,['61']],['Fire Fighting Equipment (lainnya)',null,['53']]];
 function seceCat(desc,cp){const d=String(desc||'').toUpperCase();cp=String(cp||'');
   for(const [n,rx,pre] of SECE_RULES){if(rx&&rx.test(d))return n;if(pre&&!rx&&pre.some(p=>cp.startsWith(p)))return n;if(pre&&rx&&pre.includes(cp))return n;}return 'Lainnya';}
-function seceRows(){if(!S.IH)return null;if(!S.SECE)S.SECE=S.IH.filter(r=>r[3]==='SECE').map(r=>({tag:r[0],desc:r[1],loc:r[5]||'–',cat:seceCat(r[1],r[6]),crit:r[2]}));return S.SECE;}
+function seceRows(){if(!S.IH)return null;if(!S.SECE)S.SECE=S.IH.filter(r=>r[3]==='SECE').map(r=>({tag:r[0],desc:r[1],loc:r[5]||'–',cat:seceCat(r[1],r[6]),crit:r[2],cp:r[6]||'',floc:r[7]||'',manuf:r[8]||'',mwc:r[9]||''}));return S.SECE;}
 function seceStatusCounts(rows){const tags=new Set(rows.map(r=>String(r.tag).toUpperCase()));const f=new Set(),o=new Set();
   S.seceIssues.forEach(x=>{const t=String(x.tag||'').toUpperCase();if(!tags.has(t))return;if(x.status==='Failed')f.add(t);else if(x.status==='Overdue ITPM')o.add(t);});
   o.forEach(t=>{if(f.has(t))o.delete(t);});return {total:rows.length,failed:f.size,overdue:o.size,passed:rows.length-f.size-o.size};}
@@ -1093,9 +1094,16 @@ function seceDonut(c){const R=54,C=2*Math.PI*R;let off=0;const parts=[['Passed',
     '<circle r="'+R+'" cx="70" cy="70" fill="none" stroke="var(--track)" stroke-width="22"/>'+segs.join('')+
     '<text x="70" y="68" text-anchor="middle" style="font-family:var(--f-serif);font-size:26px;fill:var(--ink)">'+fmtN(c.total)+'</text><text x="70" y="88" text-anchor="middle" style="font-size:11px;fill:var(--ink2)">total SECE</text></svg>'+
     '<div class="sc-legend">'+parts.map(([l,n,col])=>'<div class="it"><i style="background:'+col+'"></i><span>'+l+'</span><b>'+fmtN(n)+'<small>'+(c.total?(n/c.total*100).toFixed(1):0)+'%</small></b></div>').join('')+'</div></div>';}
-function hbars(list,unit){const max=Math.max(1,...list.map(x=>x[1]));
-  return '<div class="hb" role="list">'+list.map(([n,v])=>'<div class="hb-row" role="listitem" data-tip="'+esc(n)+': '+fmtN(v)+' '+unit+'"><span class="nm" title="'+esc(n)+'">'+esc(n)+'</span><div class="hb-track"><div class="hb-bar" style="width:'+(v/max*100)+'%"></div></div><span class="val">'+fmtN(v)+'</span></div>').join('')+'</div>';}
+function hbars(list,unit,dim){const max=Math.max(1,...list.map(x=>x[1]));const dr=S.seceDrill||{};
+  return '<div class="hb" role="list">'+list.map(([n,v])=>'<div class="hb-row'+(dim?' click':'')+(dr.dim===dim&&dr.val===n?' sel':'')+'" role="listitem"'+(dim?' tabindex="0" data-scdrill="'+dim+'|'+esc(n)+'"':'')+' data-tip="'+esc(n)+': '+fmtN(v)+' '+unit+(dim?' · klik untuk detail':'')+'"><span class="nm" title="'+esc(n)+'">'+esc(n)+'</span><div class="hb-track"><div class="hb-bar" style="width:'+(v/max*100)+'%"></div></div><span class="val">'+fmtN(v)+'</span></div>').join('')+'</div>';}
 function seceHead(){return listHead('Safety & Environmental Critical Element','Monitoring SECE','','');}
+function seceDrillTable(rows){const dr=S.seceDrill;if(!dr)return '';const q=(S.filt.scq||'').toLowerCase();
+  const CN=Object.fromEntries(CRIT);const all=rows.filter(r=>r[dr.dim]===dr.val);const list=all.filter(r=>!q||(r.tag+' '+r.desc+' '+r.floc+' '+r.mwc).toLowerCase().includes(q));
+  const lim=S.seceAll?list.length:200;
+  return '<section class="panel" id="scdrill"><div class="panel-h"><div><h2>'+esc(dr.val)+'</h2><span class="k-label">'+(dr.dim==='cat'?'Equipment Category':'Location')+' · '+fmtN(all.length)+' SECE sesuai IH08</span></div><div class="row">'+filterBox('scq','Cari tag / deskripsi…')+'<button class="btn sm" type="button" data-scclose>Tutup</button></div></div>'+
+    '<div class="tbl-wrap"><table><thead><tr><th>No</th><th>Tag Number</th><th>Deskripsi</th><th>Criticality</th><th>Location</th><th>Equipment Category</th><th>Catalog Profile</th><th>Functional Loc.</th><th>Main Work Center</th><th>Manufacturer</th></tr></thead><tbody>'+
+    list.slice(0,lim).map((r,i)=>'<tr><td class="n">'+(i+1)+'</td><td class="mono" style="white-space:nowrap">'+esc(r.tag)+'</td><td>'+esc(r.desc)+'</td><td>'+esc(CN[r.crit]||r.crit||'–')+'</td><td>'+esc(r.loc)+'</td><td>'+esc(r.cat)+'</td><td class="mono">'+esc(r.cp)+'</td><td class="mono" style="font-size:12px">'+esc(r.floc)+'</td><td>'+esc(r.mwc)+'</td><td>'+esc(r.manuf)+'</td></tr>').join('')+'</tbody></table></div>'+
+    (list.length>lim?'<div class="row" style="margin-top:8px"><button class="btn sm" type="button" data-scall>Tampilkan semua '+fmtN(list.length)+' SECE</button></div>':'')+'</section>';}
 function seceTabs(sub){return '<nav class="tabs" aria-label="Monitoring SECE" style="margin-top:-4px">'+[['','SECE Register'],['monitoring','SECE Monitoring']].map(([k,l])=>'<a href="#sece'+(k?'-'+k:'')+'" class="'+(sub===k?'on':'')+'">'+l+'</a>').join('')+'</nav>';}
 function vSece(arg){const sub=arg==='monitoring'?'monitoring':'';const rows=seceRows();
   if(!rows){loadIH().then(()=>{if(S.route==='sece')rerenderKeep();});return '<div class="wrap">'+seceHead()+seceTabs(sub)+'<div class="loading">Memuat data SECE dari IH08…</div></div>';}
@@ -1106,8 +1114,8 @@ function vSeceReg(rows){const c=seceStatusCounts(rows);
   const kpi=(cls,l,v,sub)=>'<div class="sc-kpi '+cls+'"><span class="k-label">'+l+'</span><span class="v">'+fmtN(v)+'</span><span class="k-label">'+sub+'</span></div>';
   return '<div class="sc-kpis">'+kpi('tot','Total SECE',c.total,'terdaftar di SAP (IH08)')+kpi('good','Passed',c.passed,(c.passed/c.total*100).toFixed(1)+'% dari total')+kpi('bad','Failed',c.failed,'lihat SECE Monitoring')+kpi('warn','Overdue ITPM',c.overdue,'lihat SECE Monitoring')+'</div>'+
     '<div class="sc-grid"><section class="panel"><h2>Status SECE</h2><p class="k-label" style="margin:-4px 0 12px">Failed dan Overdue ITPM dihitung dari tabel SECE Monitoring; sisanya dihitung Passed.</p>'+seceDonut(c)+'</section>'+
-    '<section class="panel"><div class="panel-h"><h2>SECE berdasarkan Location</h2><span class="chip num">'+byLoc.length+' lokasi</span></div>'+hbars(byLoc,'SECE')+'</section></div>'+
-    '<section class="panel"><div class="panel-h"><div><h2>SECE berdasarkan Equipment Category</h2><span class="k-label">Kategori disusun dari deskripsi dan Catalog Profile equipment di IH08.</span></div><span class="chip num">'+byCat.length+' kategori</span></div>'+hbars(byCat,'SECE')+'</section>';}
+    '<section class="panel"><div class="panel-h"><h2>SECE berdasarkan Location</h2><span class="chip num">'+byLoc.length+' lokasi</span></div>'+hbars(byLoc,'SECE','loc')+'</section></div>'+
+    '<section class="panel"><div class="panel-h"><div><h2>SECE berdasarkan Equipment Category</h2><span class="k-label">Kategori disusun dari deskripsi dan Catalog Profile equipment di IH08.</span></div><span class="chip num">'+byCat.length+' kategori</span></div>'+hbars(byCat,'SECE','cat')+'</section>'+seceDrillTable(rows);}
 function seceSearchRes(){const box=document.getElementById('siRes');const inp=document.getElementById('siQ');if(!box||!inp)return;const q=inp.value.trim().toUpperCase();S.siQ=inp.value;
   if(q.length<2){box.innerHTML='';return;}const rows=seceRows()||[];const Qn=q.replace(/[\s\-\/]/g,'');const W=q.split(/\s+/);const a=[],b=[];
   for(const r of rows){const T=r.tag.toUpperCase();const Tn=T.replace(/[\s\-\/]/g,'');if(T.startsWith(q)||Tn.startsWith(Qn))a.push(r);else if(Tn.includes(Qn)||W.every(w=>r.desc.toUpperCase().includes(w)))b.push(r);if(a.length>=20)break;}
@@ -1420,7 +1428,7 @@ window.addEventListener('hashchange',()=>{S.confirm=null;S.filt={};render();wind
 
 /* ======================= EVENTS ======================= */
 document.addEventListener('click',async e=>{
-  const t=e.target.closest('[data-submitrep],[data-repdl],[data-genreport],[data-gengo],[data-rmwev],[data-emsdl],[data-gmsdl],[data-export],[data-drill],[data-drillall],[data-hmode],[data-lf],[data-go],[data-href],[data-search],[data-searchcat],[data-stype-go],[data-startform],[data-genmode],[data-gensave],[data-genuse],[data-genai],[data-st],[data-conf],[data-tag],[data-tagall],[data-tagnone],[data-tagadd],[data-addrec],[data-rmrec],[data-tagpick],[data-tagrm],[data-tagok],[data-rmph],[data-openref],[data-genfresh],[data-sipick],[data-siclear],[data-siadd],[data-sidel],[data-reqopen],[data-reqcancel],[data-reqsend],[data-reqdecide],[data-adminout],[data-additem],[data-rmitem],[data-rmev],[data-saveform],[data-resetform],[data-askconfirm],[data-doconfirm],[data-cancelconfirm],[data-stype],[data-scat],[data-eqall],figure[data-lb]');
+  const t=e.target.closest('[data-submitrep],[data-repdl],[data-genreport],[data-gengo],[data-rmwev],[data-emsdl],[data-gmsdl],[data-export],[data-drill],[data-drillall],[data-hmode],[data-lf],[data-go],[data-href],[data-search],[data-searchcat],[data-stype-go],[data-startform],[data-genmode],[data-gensave],[data-genuse],[data-genai],[data-st],[data-conf],[data-tag],[data-tagall],[data-tagnone],[data-tagadd],[data-addrec],[data-rmrec],[data-tagpick],[data-tagrm],[data-tagok],[data-rmph],[data-openref],[data-genfresh],[data-scdrill],[data-scclose],[data-scall],[data-sipick],[data-siclear],[data-siadd],[data-sidel],[data-reqopen],[data-reqcancel],[data-reqsend],[data-reqdecide],[data-adminout],[data-additem],[data-rmitem],[data-rmev],[data-saveform],[data-resetform],[data-askconfirm],[data-doconfirm],[data-cancelconfirm],[data-stype],[data-scat],[data-eqall],figure[data-lb]');
   if(!t)return;const d=t.dataset;
   if(d.drill){const [dim,val,ata]=d.drill.split('|');S.drill={dim,val,ata,q:''};S.drill[dim]=val;rerenderKeep();const el=document.getElementById('drill');if(el)el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});return;}
   if(d.export!==undefined){exportExcel();return;}
@@ -1457,6 +1465,10 @@ document.addEventListener('click',async e=>{
   if(d.tagall!==undefined){const p=psByNo(S.form.psNo);const tq=S.form.tagQ.toLowerCase();p.tags.filter(t=>!tq||(t.tag+' '+t.unit+' '+(t.desc||'')).toLowerCase().includes(tq)).forEach(t=>{if(!S.form.tags.includes(t.tag))S.form.tags.push(t.tag);});rerenderKeep();return;}
   if(d.tagnone!==undefined){S.form.tags=[];rerenderKeep();return;}
   if(d.tagadd!==undefined){S.form.tagFree.split(',').map(x=>x.trim()).filter(Boolean).forEach(x=>{if(!S.form.tags.includes(x))S.form.tags.push(x);});S.form.tagFree='';rerenderKeep();return;}
+  if(d.scdrill){const i=d.scdrill.indexOf('|');const dim=d.scdrill.slice(0,i),val=d.scdrill.slice(i+1);const same=S.seceDrill&&S.seceDrill.dim===dim&&S.seceDrill.val===val;
+    S.seceDrill=same?null:{dim,val};S.seceAll=false;S.filt.scq='';rerenderKeep();if(!same){const el=document.getElementById('scdrill');if(el)el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}return;}
+  if(d.scclose!==undefined){S.seceDrill=null;rerenderKeep();return;}
+  if(d.scall!==undefined){S.seceAll=true;rerenderKeep();return;}
   if(d.sipick){const r=(seceRows()||[]).find(x=>x.tag===d.sipick);if(r){S.siNew=Object.assign(S.siNew||{},{tag:r.tag,desc:r.desc,loc:r.loc,cat:r.cat});S.siQ='';}rerenderKeep();return;}
   if(d.siclear!==undefined){S.siNew.tag='';S.siNew.desc='';rerenderKeep('siQ');return;}
   if(d.siadd!==undefined){if(!S.admin)return;const n=S.siNew||{};if(!n.tag){toast('Pilih tag number SECE dari IH08.');return;}
@@ -1505,6 +1517,7 @@ document.addEventListener('submit',async e=>{if(e.target.id!=='adminForm')return
 document.addEventListener('focusin',e=>{if(e.target&&e.target.id==='tagSearch'&&e.target.value.trim().length>=2)updateTagRes();});
 document.addEventListener('mousedown',e=>{const box=document.getElementById('tagRes');if(box&&box.innerHTML&&!e.target.closest('.tagsearch'))box.innerHTML='';});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.dataset&&e.target.dataset.openref&&e.target.tagName==='DIV'){openRefFile(e.target.dataset.openref);return;}
+  if(e.key==='Enter'&&e.target&&e.target.dataset&&e.target.dataset.scdrill){e.target.click();return;}
   if(e.key==='Escape'){$('#lightbox').hidden=true;if(e.target&&(e.target.id==='tagSearch'||(e.target.dataset&&e.target.dataset.tagpick!==undefined)))closeTagRes(true);}
   if(e.target&&e.target.id==='tagSearch'){if(e.key==='Enter'){e.preventDefault();const b=document.querySelector('#tagRes [data-tagpick]');if(b)pickTag(b.dataset.tagpick);}else if(e.key==='ArrowDown'){const b=document.querySelector('#tagRes [data-tagpick]');if(b){e.preventDefault();b.focus();}}}
   else if(e.target&&e.target.dataset&&e.target.dataset.tagpick!==undefined){if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const n=e.key==='ArrowDown'?e.target.nextElementSibling:e.target.previousElementSibling;if(n)n.focus();else if(e.key==='ArrowUp'){const i=document.getElementById('tagSearch');if(i)i.focus();}}}});
