@@ -1799,7 +1799,7 @@ async function buildReportDocx(v){if((v.tags||[]).length&&!S.IH){try{await loadI
       rows.push(new TableRow({children:[cell(it.v,{fill:LBLUE,run:{bold:true}}),cell([new Paragraph({children:[run(it.vt,{bold:true})]}),new Paragraph({children:[run('Aktivitas WVS: ',{bold:true}),run(wi?wi.act:'')]})],{fill:LBLUE,span:8})]}));lastV=it.v;lastSec='';}
     if(it.sec!==lastSec){rows.push(new TableRow({children:[cell(it.sec==='off'?'A. Off-site Verification':'B. On-site Verification',{fill:GREY,run:{bold:true},span:9})]}));lastSec=it.sec;}
     const ev=[];for(const e of it.ev||[]){if((e.type||'').startsWith('image/')){const im=await imgForDocx(e);if(im){ev.push(new Paragraph({children:[new ImageRun({data:im.data,transformation:{width:im.w,height:im.h}})]}));if(e.cap)ev.push(para(e.cap,{italics:true,size:14}));continue;}}ev.push(para('📄 '+(e.name||'Dokumen')));if(e.cap)ev.push(para(e.cap,{italics:true,size:14}));}
-    if(!ev.length)ev.push(para(''));
+    if(!ev.length)ev.push(para('N/A',{},{alignment:AlignmentType.CENTER}));
     const mark=s=>cell(it.st===s?'✓':'',{para:{alignment:AlignmentType.CENTER},run:{bold:true,size:20}});
     rows.push(new TableRow({cantSplit:true,children:[cell(it.no,{fill:GREY}),cell(it.q),cell(it.ref),cell(it.met),mark('Y'),mark('C'),mark('T'),cell(it.note||''),cell(ev)]}));
   }
@@ -1822,7 +1822,7 @@ async function buildReportDocx(v){if((v.tags||[]).length&&!S.IH){try{await loadI
     children:[head,new Paragraph({spacing:{before:160,after:80},children:[run('OPERATIONAL VERIFICATION',{bold:true,size:20,color:NAVY})]}),op,new Paragraph({spacing:{before:160,after:80},children:[]}),res].concat(await docPhotosSection(v,{Table,TableRow,Paragraph,ImageRun,AlignmentType,tbl,cell,H,para,run,NAVY}))}]});
   return Packer.toBlob(doc);
 }
-async function docPhotosSection(v,k){const ph=(v.photos||[]);if(!ph.length)return [];
+async function docPhotosSection(v,k){const ph=(v.photos||[]);if(!ph.length)return [new k.Paragraph({spacing:{before:160,after:80},children:[]}),k.tbl([new k.TableRow({children:[k.H('DOKUMENTASI KEGIATAN',1)]}),new k.TableRow({children:[k.cell('N/A',{w:15300,para:{alignment:k.AlignmentType.CENTER}})]})],[15300])];
   const cells=[];for(let i=0;i<ph.length;i++){const e=ph[i];const im=await imgForDocx(e,300);
     const kids=[k.para('Foto '+(i+1),{bold:true})];if(im)kids.push(new k.Paragraph({alignment:k.AlignmentType.CENTER,children:[new k.ImageRun({data:im.data,transformation:{width:im.w,height:im.h}})]}));
     kids.push(k.para(e.cap||'',{italics:true}));cells.push(k.cell(kids,{w:7650}));}
