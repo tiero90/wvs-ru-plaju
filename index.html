@@ -1762,7 +1762,12 @@ async function imgForDocx(e,max){max=max||110;
     let w=max,h=Math.round(max*.75);try{const bm=await createImageBitmap(blob);const s=Math.min(max/bm.width,max/bm.height);w=Math.round(bm.width*s);h=Math.round(bm.height*s);}catch(_){}
     return {data:new Uint8Array(buf),w,h};}catch(err){return null;}
 }
-async function buildReportDocx(v){
+function tagBreakdownText(tags){tags=tags||[];const ix=ihIndex();if(!tags.length||!ix)return '';
+  const K=['H','I','M','L','Z'];const mk=()=>({H:0,I:0,M:0,L:0,Z:0,n:0});const se=mk(),no=mk();let none=0;
+  tags.forEach(t=>{const r=ix[String(t).toUpperCase()];if(!r){none++;return;}const g=r[3]==='SECE'?se:no;g.n++;if(g[r[2]]!=null)g[r[2]]++;});
+  const line=(lab,g)=>lab+': '+g.n+' peralatan (Criticality '+K.map(k=>CRIT_SHORT[k]+' '+g[k]).join(', ')+')';
+  return '\n\nRincian peralatan:\n'+line('SECE',se)+'\n'+line('Non-SECE',no)+(none?'\nTidak ditemukan di IH08: '+none+' tag':'');}
+async function buildReportDocx(v){if((v.tags||[]).length&&!S.IH){try{await loadIH();}catch(e){}}
   if(!window.docx)await loadScript('https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js');
   const D=window.docx;const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,AlignmentType,ShadingType,BorderStyle,PageOrientation,ImageRun,VerticalAlign}=D;
   const p=psByNo(v.psNo);const w=wvsByPs(v.psNo);
@@ -1782,7 +1787,7 @@ async function buildReportDocx(v){
     new TableRow({children:[L('Equipment Category'),cell(p.title),L('Custodian'),cell(w?w.cust:p.cust)]}),
     new TableRow({children:[L('Scope'),cell(p.scope.split('\n').slice(0,8).join('\n'),{span:3})]}),
     new TableRow({children:[L('SECE Goal'),cell(p.goal,{span:3})]}),
-    new TableRow({children:[L('Unit Area'),cell(v.unitArea||p.loc||''),L('Tag Number'),cell(((v.tags||[]).length?v.tags.join(', '):'Terlampir')+(+v.totalTags>0?'\n('+(v.tags||[]).length+' dari total '+v.totalTags+' tag number)':''))]}),
+    new TableRow({children:[L('Unit Area'),cell(v.unitArea||p.loc||''),L('Tag Number'),cell(((v.tags||[]).length?v.tags.join(', '):'Terlampir')+(+v.totalTags>0?'\n('+(v.tags||[]).length+' dari total '+v.totalTags+' tag number)':'')+tagBreakdownText(v.tags))]}),
     new TableRow({children:[L('Tanggal Verifikasi'),cell(fmtDate(v.date)),L('Verifikator'),cell([v.verifiers,v.fungsi].filter(Boolean).join(' · '))]})
   ],[2600,5050,2600,5050]);
   // operational verification
