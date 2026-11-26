@@ -56,6 +56,14 @@ a{color:var(--link)}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .mono{font-family:var(--f-mono);font-size:.88em}
+.tb{display:inline-block;font-size:10.5px;font-weight:700;line-height:1;padding:3px 5px;border-radius:4px;margin-left:4px;vertical-align:1px;font-family:var(--f-body)}
+.tb.sece{background:var(--c-sece);color:#fff}
+.tb.cH{background:#c8102e;color:#fff}.tb.cI{background:#e8590c;color:#fff}.tb.cM{background:#f2b705;color:#1d1d1d}.tb.cL{background:#2f7ed8;color:#fff}.tb.cZ{background:#8a96a6;color:#fff}
+.tstats{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.tstats .chip{gap:4px}
+.tlist{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.tlist .chip{font-family:var(--f-mono);font-size:12px}
+.meta div.tlist,.meta div.tstats{flex-direction:row;flex-wrap:wrap;gap:6px}
 .sc-grid{display:grid;grid-template-columns:minmax(280px,1fr) 2fr;gap:18px}
 @media (max-width:900px){.sc-grid{grid-template-columns:1fr}}
 .sc-donut{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
@@ -735,17 +743,30 @@ function drillTable(){
 
 /* ===== Tag Number search (IH08) ===== */
 function ihIndex(){if(!S.IH)return null;if(!S.IHX){S.IHX={};S.IH.forEach(r=>{S.IHX[String(r[0]).toUpperCase()]=r;});}return S.IHX;}
+
+const CRIT_SHORT={H:'H',I:'MH',M:'M',L:'L',Z:'Z'};
+function tagBadges(t){const ix=ihIndex();const r=ix&&ix[String(t).toUpperCase()];if(!r)return '';
+  return (r[3]==='SECE'?'<span class="tb sece" title="SECE">SECE</span>':'')+(CRIT_SHORT[r[2]]?'<span class="tb c'+r[2]+'" title="Criticality '+esc((CRIT.find(c=>c[0]===r[2])||[])[1]||r[2])+'">'+CRIT_SHORT[r[2]]+'</span>':'');}
+function tagStatsHTML(tags){tags=tags||[];if(!tags.length)return '';const ix=ihIndex();
+  if(!ix){loadIH().then(()=>refresh(true));return '<div class="tstats"><span class="k-label">Memuat data IH08…</span></div>';}
+  const c={sece:0,H:0,I:0,M:0,L:0,Z:0,x:0,none:0};
+  tags.forEach(t=>{const r=ix[String(t).toUpperCase()];if(!r){c.none++;return;}if(r[3]==='SECE')c.sece++;if(c[r[2]]!=null)c[r[2]]++;else c.x++;});
+  const n=tags.length;
+  return '<div class="tstats"><span class="chip num"><b>'+n+'</b> tag</span><span class="chip"><span class="tb sece">SECE</span> '+c.sece+' <small style="color:var(--muted)">('+Math.round(c.sece/n*100)+'%)</small></span>'+
+    ['H','I','M','L','Z'].map(k=>'<span class="chip" title="Criticality '+esc((CRIT.find(x=>x[0]===k)||[])[1])+'"><span class="tb c'+k+'">'+CRIT_SHORT[k]+'</span> '+c[k]+'</span>').join('')+
+    (c.none?'<span class="chip bad">'+c.none+' tidak ada di IH08</span>':'')+'</div>';}
+function tagListHTML(tags){return (tags||[]).length?'<div class="tlist">'+tags.map(t=>'<span class="chip">'+esc(t)+tagBadges(t)+'</span>').join('')+'</div>'+tagStatsHTML(tags):'–';}
 function tagSelUI(f){
   if(!S.IH){loadIH().then(()=>{if(S.route==='gen'||S.route==='form')updateTagRes();renderTagChips();});}else if(f.tagS)setTimeout(updateTagRes,0);
   return '<div class="tagsel"><div class="tagchips" id="tagChips">'+tagChipsHTML(f)+'</div>'+
     '<div class="tagsearch"><div class="tagsrow"><input type="search" id="tagSearch" autocomplete="off" value="'+esc(f.tagS||'')+'" placeholder="Cari tag number IH08, mis. CD2-P-031 atau deskripsi pompa" aria-label="Cari tag number IH08" aria-controls="tagRes"><button type="button" class="btn pri" data-tagok>OK</button></div>'+
     '<div class="tagres" id="tagRes" role="listbox" aria-label="Rekomendasi tag number"></div></div>'+
-    '<span class="k-label" id="tagCount">'+f.tags.length+' tag dipilih · hanya tag number yang terdaftar di IH08 (SAP)</span></div>';
+    '<span class="k-label" id="tagCount">'+f.tags.length+' tag dipilih · hanya tag number yang terdaftar di IH08 (SAP)</span><div id="tagStats">'+tagStatsHTML(f.tags)+'</div></div>';
 }
 function tagChipsHTML(f){const ix=ihIndex();
   return f.tags.map((t,i)=>{const r=ix&&ix[String(t).toUpperCase()];const bad=ix&&!r;
-    return '<span class="tchip'+(bad?' bad':'')+'" title="'+esc(bad?'Tidak ditemukan di IH08':(r?r[1]:''))+'"><b>'+esc(t)+'</b><span>'+esc(bad?'tidak ada di IH08':(r?r[1]:''))+'</span><button type="button" data-tagrm="'+i+'" aria-label="Hapus tag '+esc(t)+'">✕</button></span>';}).join('');}
-function renderTagChips(){const f=S.form;if(!f)return;const c=document.getElementById('tagChips');if(c)c.innerHTML=tagChipsHTML(f);const n=document.getElementById('tagCount');if(n)n.textContent=f.tags.length+' tag dipilih · hanya tag number yang terdaftar di IH08 (SAP)';}
+    return '<span class="tchip'+(bad?' bad':'')+'" title="'+esc(bad?'Tidak ditemukan di IH08':(r?r[1]:''))+'"><b>'+esc(t)+'</b>'+tagBadges(t)+'<span>'+esc(bad?'tidak ada di IH08':(r?r[1]:''))+'</span><button type="button" data-tagrm="'+i+'" aria-label="Hapus tag '+esc(t)+'">✕</button></span>';}).join('');}
+function renderTagChips(){const f=S.form;if(!f)return;const c=document.getElementById('tagChips');if(c)c.innerHTML=tagChipsHTML(f);const n=document.getElementById('tagCount');if(n)n.textContent=f.tags.length+' tag dipilih · hanya tag number yang terdaftar di IH08 (SAP)';const st=document.getElementById('tagStats');if(st)st.innerHTML=tagStatsHTML(f.tags);}
 function tagMatches(q){
   const Q=q.trim().toUpperCase();if(Q.length<2||!S.IH)return [];const Qn=Q.replace(/[\s\-\/]/g,'');const W=Q.split(/\s+/).filter(Boolean);const have=new Set(S.form.tags.map(x=>String(x).toUpperCase()));
   const a=[],b=[],c=[];
@@ -971,7 +992,7 @@ function verifSummary(v,w){
   const cf=v.confirm||{};
   return '<section class="panel"><div class="panel-h"><div><h2>Hasil Verifikasi</h2><span class="k-label">Diinput '+fmtDate(v.date)+' oleh '+esc(v.verifiers||'–')+(v.fungsi?' ('+esc(v.fungsi)+')':'')+'</span></div><div class="row">'+scoreChip(v.score)+
       '<span class="chip good">Ya '+(v.nY||0)+'</span><span class="chip warn">Dengan Catatan '+(v.nC||0)+'</span><span class="chip bad">Tidak '+(v.nT||0)+'</span></div></div>'+
-    '<dl class="meta"><div><dt>Unit Area</dt><dd>'+esc(v.unitArea||'–')+'</dd></div><div><dt>Tag Number</dt><dd class="mono">'+esc((v.tags||[]).join(', ')||'–')+'</dd></div><div><dt>Checklist</dt><dd>'+esc(v.clTitle||'–')+'</dd></div></dl>'+
+    '<dl class="meta"><div><dt>Unit Area</dt><dd>'+esc(v.unitArea||'–')+'</dd></div><div style="grid-column:1/-1"><dt>Tag Number</dt><dd>'+tagListHTML(v.tags)+'</dd></div><div><dt>Checklist</dt><dd>'+esc(v.clTitle||'–')+'</dd></div></dl>'+
     '<div class="grid2"><div><h3 style="margin-bottom:8px">Verification Finding</h3><p class="prewrap">'+esc(v.findings||'–')+'</p>'+(v.comments?'<h3 style="margin:12px 0 8px">Good Practice</h3><p class="prewrap">'+esc(v.comments)+'</p>':'')+(v.remarks?'<h3 style="margin:12px 0 8px">Remarks / Note</h3><p class="prewrap">'+esc(v.remarks)+'</p>':'')+'</div>'+
     '<div><h3 style="margin-bottom:8px">Verification Results</h3><div class="tbl-wrap"><table><tbody>'+CONFIRM.map(c=>{const x=cf[c[0]];return '<tr><td>'+esc(c[1])+'</td><td style="white-space:nowrap">'+(x==='C'?'<span class="chip good">Confirmed</span>':x==='NC'?'<span class="chip bad">Not Confirmed</span>':x==='TBD'?'<span class="chip warn">To be determined</span>':'–')+'</td></tr>';}).join('')+'</tbody></table></div></div></div>'+
     ((v.recs||[]).length?'<h3>Recommendation</h3><div class="tbl-wrap"><table><thead><tr><th>No</th><th>Rekomendasi</th><th>PIC</th><th>Target Penyelesaian</th><th>Status</th></tr></thead><tbody>'+
@@ -1387,7 +1408,7 @@ function vResult(id){
    '<h1>Verifikasi '+esc(v.psNo)+' '+esc(p.title)+'</h1>'+
    '<dl class="meta">'+[['Tanggal',fmtDate(v.date)],['Verifikator',v.verifiers||'–'],['Fungsi',v.fungsi||'–'],['Unit area',v.unitArea||'–'],['Checklist',v.clTitle||'–'],['Rekap','Ya '+(v.nY||0)+' · Dengan catatan '+(v.nC||0)+' · Tidak '+(v.nT||0)]].map(m=>'<div><dt>'+m[0]+'</dt><dd>'+esc(m[1])+'</dd></div>').join('')+'</dl>'+
    '<div class="row">'+(p.id?'<a class="btn" href="#doc-'+esc(p.id)+'">Lihat Performance Standard</a>':'')+confirmBtn('delv',v.id,'Hapus hasil')+'</div></div>'+
-   '<section class="panel"><h2>Tag Disampel</h2>'+((v.tags||[]).length?'<div class="chips">'+v.tags.map(t=>'<span class="chip mono">'+esc(t)+'</span>').join('')+'</div>':'<p>Verifikasi tingkat sistem (tanpa tag).</p>')+'</section>'+
+   '<section class="panel"><h2>Tag Disampel</h2>'+((v.tags||[]).length?tagListHTML(v.tags):'<p>Verifikasi tingkat sistem (tanpa tag).</p>')+'</section>'+
    '<section class="panel"><h2>Hasil per Pertanyaan</h2><div class="tbl-wrap"><table><thead><tr><th>No</th><th>Pertanyaan</th><th>Ref. PS</th><th>Metode</th><th>Hasil</th><th>Penjelasan</th><th>Bukti</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>'+
    '<section class="panel"><h2>Evidence / Dokumentasi</h2>'+(evAll.length?'<div class="ev">'+evAll.map(e=>'<figure data-lb="'+esc(evSrc(e))+'" data-type="'+esc(e.type||'')+'" title="Butir '+esc(e.no)+' · '+esc(e.name||'')+'" style="width:140px;height:104px">'+((e.type||'').startsWith('image/')?'<img src="'+esc(evSrc(e))+'" alt="Bukti butir '+esc(e.no)+'">':'<span>PDF · butir '+esc(e.no)+'</span>')+'</figure>').join('')+'</div>':emptyBox('Tidak ada bukti terlampir.'))+'</section>'+
    ((v.photos||[]).length?'<section class="panel">'+photosView(v.photos)+'</section>':'')+
